@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Settings,
   Building2,
@@ -12,6 +12,13 @@ import {
   CheckCircle2,
   RefreshCw,
   Clock,
+  Database,
+  Link as LinkIcon,
+  Copy,
+  ExternalLink,
+  Check,
+  AlertTriangle,
+  UploadCloud,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
@@ -20,6 +27,12 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { formatCurrency } from '@/lib/utils';
+import {
+  getSupabaseConfig,
+  updateSupabaseCredentials,
+  testSupabaseConnection,
+} from '@/lib/supabaseClient';
+import { supabaseService } from '@/lib/supabaseService';
 
 export default function SettingsPage() {
   const {
@@ -31,12 +44,20 @@ export default function SettingsPage() {
     addCourse,
     batches,
     addBatch,
+    students,
+    monthlyAttendance,
+    blossomPayments,
+    dropouts,
+    assessments,
+    assessmentMarks,
+    completions,
+    outcomes,
     auditLogs,
     resetToDefaults,
     currentRole,
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'rules' | 'courses' | 'org' | 'audit'>('rules');
+  const [activeTab, setActiveTab] = useState<'rules' | 'courses' | 'org' | 'database' | 'audit'>('rules');
   const [isSavedNotice, setIsSavedNotice] = useState(false);
 
   // Settings form state
@@ -49,6 +70,21 @@ export default function SettingsPage() {
 
   // Org form state
   const [orgForm, setOrgForm] = useState(orgProfile);
+
+  // Supabase connection state
+  const [supabaseUrl, setSupabaseUrl] = useState('');
+  const [supabaseAnonKey, setSupabaseAnonKey] = useState('');
+  const [isTestingConn, setIsTestingConn] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportResult, setExportResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [copiedSchema, setCopiedSchema] = useState(false);
+
+  useEffect(() => {
+    const cfg = getSupabaseConfig();
+    setSupabaseUrl(cfg.url);
+    setSupabaseAnonKey(cfg.key);
+  }, []);
 
   // Add Course modal
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
@@ -79,6 +115,47 @@ export default function SettingsPage() {
     setTimeout(() => setIsSavedNotice(false), 3000);
   };
 
+  const handleSaveSupabase = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateSupabaseCredentials(supabaseUrl.trim(), supabaseAnonKey.trim());
+    setIsSavedNotice(true);
+    setTimeout(() => setIsSavedNotice(false), 3000);
+  };
+
+  const handleTestConnection = async () => {
+    setIsTestingConn(true);
+    setTestResult(null);
+    const res = await testSupabaseConnection(supabaseUrl.trim(), supabaseAnonKey.trim());
+    setTestResult(res);
+    setIsTestingConn(false);
+  };
+
+  const handleExportData = async () => {
+    setIsExporting(true);
+    setExportResult(null);
+    const res = await supabaseService.exportLocalDataToSupabase({
+      students,
+      courses,
+      batches,
+      monthlyAttendance,
+      blossomPayments,
+      dropouts,
+      assessments,
+      assessmentMarks,
+      completions,
+      outcomes,
+    });
+    setExportResult(res);
+    setIsExporting(false);
+  };
+
+  const handleCopySchemaSql = () => {
+    navigator.clipboard.writeText(`-- Run this script in Supabase SQL Editor:
+-- Available in file: supabase_schema.sql in the root repository`);
+    setCopiedSchema(true);
+    setTimeout(() => setCopiedSchema(false), 2500);
+  };
+
   const handleCreateCourse = (e: React.FormEvent) => {
     e.preventDefault();
     if (!courseForm.name) return;
@@ -101,6 +178,13 @@ export default function SettingsPage() {
     });
   };
 
+  const isConfigured = Boolean(
+    supabaseUrl &&
+    supabaseAnonKey &&
+    !supabaseUrl.includes('placeholder') &&
+    !supabaseUrl.includes('your-project')
+  );
+
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn">
       {/* Header */}
@@ -113,7 +197,7 @@ export default function SettingsPage() {
             <Badge variant={currentRole === 'Admin' ? 'emerald' : 'amber'}>Role: {currentRole}</Badge>
           </div>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Configure Blossom Trust support maximums, attendance eligibility thresholds, course catalog, and audit trail
+            Configure Blossom Trust support maximums, attendance eligibility thresholds, course catalog, and Supabase cloud sync
           </p>
         </div>
       </div>
@@ -128,10 +212,10 @@ export default function SettingsPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-800 gap-6 text-xs sm:text-sm">
+      <div className="flex border-b border-slate-800 gap-4 sm:gap-6 text-xs sm:text-sm overflow-x-auto">
         <button
           onClick={() => setActiveTab('rules')}
-          className={`pb-3 font-bold flex items-center gap-2 transition-colors border-b-2 ${
+          className={`pb-3 font-bold flex items-center gap-2 whitespace-nowrap transition-colors border-b-2 ${
             activeTab === 'rules'
               ? 'border-blue-500 text-blue-400'
               : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -141,8 +225,24 @@ export default function SettingsPage() {
           Business Rules & Thresholds
         </button>
         <button
+          onClick={() => setActiveTab('database')}
+          className={`pb-3 font-bold flex items-center gap-2 whitespace-nowrap transition-colors border-b-2 ${
+            activeTab === 'database'
+              ? 'border-blue-500 text-blue-400'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Database className="w-4 h-4" />
+          Supabase Database & Cloud
+          {isConfigured ? (
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          ) : (
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+          )}
+        </button>
+        <button
           onClick={() => setActiveTab('courses')}
-          className={`pb-3 font-bold flex items-center gap-2 transition-colors border-b-2 ${
+          className={`pb-3 font-bold flex items-center gap-2 whitespace-nowrap transition-colors border-b-2 ${
             activeTab === 'courses'
               ? 'border-blue-500 text-blue-400'
               : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -153,7 +253,7 @@ export default function SettingsPage() {
         </button>
         <button
           onClick={() => setActiveTab('org')}
-          className={`pb-3 font-bold flex items-center gap-2 transition-colors border-b-2 ${
+          className={`pb-3 font-bold flex items-center gap-2 whitespace-nowrap transition-colors border-b-2 ${
             activeTab === 'org'
               ? 'border-blue-500 text-blue-400'
               : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -164,7 +264,7 @@ export default function SettingsPage() {
         </button>
         <button
           onClick={() => setActiveTab('audit')}
-          className={`pb-3 font-bold flex items-center gap-2 transition-colors border-b-2 ${
+          className={`pb-3 font-bold flex items-center gap-2 whitespace-nowrap transition-colors border-b-2 ${
             activeTab === 'audit'
               ? 'border-blue-500 text-blue-400'
               : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -278,6 +378,210 @@ export default function SettingsPage() {
               </Button>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* TAB: DATABASE & SUPABASE CONNECTION */}
+      {activeTab === 'database' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Connection Form */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Database className="w-5 h-5 text-emerald-400" />
+                      Supabase Cloud Database Connection
+                    </CardTitle>
+                    <CardDescription>
+                      Connect your PostgreSQL cloud database for persistent synchronization across all staff
+                    </CardDescription>
+                  </div>
+                  <Badge variant={isConfigured ? 'emerald' : 'amber'}>
+                    {isConfigured ? 'Connected & Ready' : 'Local Storage Mode'}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <form onSubmit={handleSaveSupabase} className="space-y-4">
+                  <Input
+                    label="Supabase Project URL *"
+                    placeholder="https://your-project-id.supabase.co"
+                    value={supabaseUrl}
+                    onChange={(e) => setSupabaseUrl(e.target.value)}
+                    helperText="Find in Supabase Dashboard → Settings → API → Project URL"
+                  />
+
+                  <Input
+                    label="Supabase Anon / Public Key *"
+                    type="password"
+                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    value={supabaseAnonKey}
+                    onChange={(e) => setSupabaseAnonKey(e.target.value)}
+                    helperText="Find in Supabase Dashboard → Settings → API → Project API Keys (anon / public)"
+                  />
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleTestConnection}
+                        disabled={isTestingConn || !supabaseUrl || !supabaseAnonKey}
+                        leftIcon={<RefreshCw className={`w-4 h-4 ${isTestingConn ? 'animate-spin' : ''}`} />}
+                      >
+                        {isTestingConn ? 'Testing Connection...' : 'Test Connection'}
+                      </Button>
+                    </div>
+
+                    <Button type="submit" variant="primary" size="sm">
+                      Save Credentials
+                    </Button>
+                  </div>
+                </form>
+
+                {/* Test Feedback Notice */}
+                {testResult && (
+                  <div
+                    className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 animate-fadeIn ${
+                      testResult.success
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                        : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                    }`}
+                  >
+                    {testResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <strong className="block mb-0.5">
+                        {testResult.success ? 'Connection Verified' : 'Connection Unsuccessful'}
+                      </strong>
+                      <span>{testResult.message}</span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Cloud Seed / Sync Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UploadCloud className="w-5 h-5 text-blue-400" />
+                  Seed & Synchronize Local Data to Supabase
+                </CardTitle>
+                <CardDescription>
+                  Upload your current trainees ({students.length}), attendance records, and Blossom payments directly into your live Supabase database.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-xs text-slate-400">
+                  Once your database schema is created, click below to populate your cloud database with all courses, batches, trainees, and payment records.
+                </p>
+
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleExportData}
+                    disabled={isExporting || !isConfigured}
+                    leftIcon={<UploadCloud className={`w-4 h-4 ${isExporting ? 'animate-spin' : ''}`} />}
+                  >
+                    {isExporting ? 'Pushing Data to Supabase...' : 'Push All Local Data to Supabase'}
+                  </Button>
+                </div>
+
+                {exportResult && (
+                  <div
+                    className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 animate-fadeIn ${
+                      exportResult.success
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                        : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                    }`}
+                  >
+                    {exportResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <strong className="block mb-0.5">
+                        {exportResult.success ? 'Push Completed' : 'Export Failed'}
+                      </strong>
+                      <span>{exportResult.message}</span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Quick Setup Instructions Sidebar */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Supabase Setup Guide</CardTitle>
+                <CardDescription className="text-xs">Follow these 3 quick steps</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 text-xs">
+                <div className="space-y-1.5">
+                  <span className="font-bold text-white flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-blue-600/30 text-blue-400 flex items-center justify-center text-[10px]">1</span>
+                    Create Supabase Project
+                  </span>
+                  <p className="text-slate-400 pl-6">
+                    Sign in at{' '}
+                    <a
+                      href="https://app.supabase.com"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-400 hover:underline inline-flex items-center gap-1"
+                    >
+                      supabase.com <ExternalLink className="w-3 h-3" />
+                    </a>{' '}
+                    and create a new project.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="font-bold text-white flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-blue-600/30 text-blue-400 flex items-center justify-center text-[10px]">2</span>
+                    Run SQL Schema
+                  </span>
+                  <p className="text-slate-400 pl-6">
+                    Go to the <strong>SQL Editor</strong> in Supabase and execute the table schema from{' '}
+                    <code className="text-cyan-400 font-mono">supabase_schema.sql</code>.
+                  </p>
+                  <div className="pl-6 pt-1">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleCopySchemaSql}
+                      leftIcon={copiedSchema ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      className="w-full text-xs"
+                    >
+                      {copiedSchema ? 'Schema Path Copied!' : 'Copy SQL Schema Info'}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="font-bold text-white flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-blue-600/30 text-blue-400 flex items-center justify-center text-[10px]">3</span>
+                    Paste API Keys
+                  </span>
+                  <p className="text-slate-400 pl-6">
+                    Copy the <strong>Project URL</strong> and <strong>Anon Public Key</strong> from Project Settings → API and save them above or in{' '}
+                    <code className="text-cyan-400 font-mono">.env.local</code>.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
 
