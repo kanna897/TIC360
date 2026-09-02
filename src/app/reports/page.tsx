@@ -181,36 +181,27 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800">
-        <div className="flex items-center gap-4">
-          <div className="p-2 bg-white rounded-xl shadow-md shrink-0 hidden sm:flex items-center justify-center">
-            <img
-              src="/tic360-logo-horizontal.png"
-              alt="TIC360 Training Centre"
-              className="h-12 w-auto object-contain"
-            />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+              TIC360 Comprehensive Outcome Reports
+            </h1>
+            <Badge variant="blue">Official Audit & Analysis</Badge>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-                Comprehensive MIS & Outcome Reports
-              </h1>
-              <Badge variant="blue">Official Audit Suite</Badge>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-              Standard reporting & analytics for {orgProfile.orgName} & Blossom Trust
-            </p>
-          </div>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Standard reporting suites for Unicom TIC Training Centre & Blossom Trust Trustees
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5">
           <Button
             variant="outline"
             size="sm"
             onClick={handleExportMasterExcel}
             leftIcon={<Download className="w-4 h-4 text-emerald-400" />}
           >
-            Export to Excel (.xlsx)
+            Export All to Excel (.xlsx)
           </Button>
           <Button
             variant="primary"
@@ -218,7 +209,7 @@ export default function ReportsPage() {
             onClick={handlePrint}
             leftIcon={<Printer className="w-4 h-4" />}
           >
-            Print PDF Report
+            Print Executive Report (PDF)
           </Button>
         </div>
       </div>
