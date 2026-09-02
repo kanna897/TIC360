@@ -231,7 +231,10 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC
 
 -- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
+-- Permissive policies for anon and authenticated roles for full MIS functionality
 -- ==============================================================================
+ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE batches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_bank_details ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blossom_applications ENABLE ROW LEVEL SECURITY;
@@ -243,10 +246,21 @@ ALTER TABLE assessment_marks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE course_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_outcomes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 
--- Default authenticated read/write access policies
-CREATE POLICY "Allow authenticated users to view students" ON students FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow staff to insert/update students" ON students FOR ALL USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Allow blossom officers & admins to view bank details" ON student_bank_details FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow blossom officers & admins to view payments" ON blossom_payments FOR SELECT USING (auth.role() = 'authenticated');
+-- Allow full access to all tables for application operations
+DO $$ 
+DECLARE
+    t text;
+    tables text[] := ARRAY[
+        'courses', 'batches', 'students', 'student_bank_details', 
+        'blossom_applications', 'attendance', 'blossom_payments', 
+        'dropouts', 'assessments', 'assessment_marks', 
+        'course_completions', 'student_outcomes', 'audit_logs', 'system_settings'
+    ];
+BEGIN
+    FOREACH t IN ARRAY tables LOOP
+        EXECUTE format('DROP POLICY IF EXISTS "Allow full access on %I" ON %I;', t, t);
+        EXECUTE format('CREATE POLICY "Allow full access on %I" ON %I FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);', t, t);
+    END LOOP;
+END $$;
