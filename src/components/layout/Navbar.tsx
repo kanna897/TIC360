@@ -225,6 +225,20 @@ export const Navbar = ({ onToggleSidebar }: NavbarProps) => {
             </div>
           )}
         </div>
+
+        {/* User Account / Login Link */}
+        <Link
+          href="/login"
+          className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-slate-900 border border-slate-700/80 hover:border-slate-500 transition-all text-xs font-semibold group"
+          title="Sign in or Switch Account"
+        >
+          <div className="w-6 h-6 rounded-full bg-blue-600/30 text-blue-400 border border-blue-500/40 flex items-center justify-center font-bold text-[10px]">
+            {currentRole.charAt(0)}
+          </div>
+          <span className="hidden md:inline text-slate-200 group-hover:text-white">
+            {currentRole}
+          </span>
+        </Link>
       </div>
     </header>
   );
