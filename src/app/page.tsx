@@ -146,22 +146,31 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn">
       {/* Top Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-900/60 via-slate-900 to-indigo-950/60 border border-blue-500/20 p-5 sm:p-6 shadow-xl">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              <span>{orgProfile.tagline}</span>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-950/80 via-slate-900 to-indigo-950/80 border border-blue-500/30 p-5 sm:p-6 shadow-xl">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="p-2 bg-white rounded-2xl shadow-lg shadow-blue-500/20 border border-blue-200 shrink-0">
+              <img
+                src="/tic360-logo-horizontal.png"
+                alt="UNICOM TIC360 Training Centre"
+                className="h-14 sm:h-16 w-auto object-contain"
+              />
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-              Student Management & Outcome Reporting Platform
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-3xl leading-relaxed">
-              Tracking student progress from registration through monthly attendance, academic project milestones, Blossom Trust monthly eligibility, and post-graduation industry outcomes.
-            </p>
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-[11px] font-semibold">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{orgProfile.tagline}</span>
+              </div>
+              <h1 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                Student Lifecycle Management & Blossom Trust MIS
+              </h1>
+              <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                Tracking trainee lifecycle from enrollment through monthly attendance, academic project milestones, Blossom Trust monthly stipend compliance, and post-graduation industry outcomes.
+              </p>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex flex-wrap sm:flex-nowrap gap-2.5 shrink-0">
             <Link href="/students">
               <Button variant="primary" size="sm" leftIcon={<Users className="w-4 h-4" />}>
                 Register Student

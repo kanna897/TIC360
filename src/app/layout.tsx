@@ -14,9 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'TIC360 - 360° Management & Operations Platform',
+  title: 'TIC360 - Training Centre & Blossom Trust MIS',
   description:
-    'Comprehensive management platform for Unicom TIC, Blossom Trust, Academy operations, financial ledgers, courses, and asset stickers.',
+    'Comprehensive Student Lifecycle, Attendance Compliance, Assessment, and Post-Graduation Outcome Platform for Unicom TIC Training Centre & Blossom Trust.',
+  icons: {
+    icon: '/tic360-logo-badge.jpg',
+    shortcut: '/tic360-logo-badge.jpg',
+    apple: '/tic360-logo-badge.jpg',
+  },
 };
 
 export default function RootLayout({

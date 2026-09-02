@@ -97,18 +97,20 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     >
       {/* Brand Header */}
       <div>
-        <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-[1px] shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform duration-300">
-              <div className="w-full h-full bg-slate-950 rounded-[11px] flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-cyan-400" />
-              </div>
+            <div className="w-11 h-11 rounded-xl overflow-hidden bg-white/5 border border-slate-700/80 shadow-lg shadow-blue-500/10 group-hover:scale-105 transition-transform duration-300 shrink-0 flex items-center justify-center p-0.5 bg-white">
+              <img
+                src="/tic360-logo-badge.jpg"
+                alt="TIC360 Training Centre"
+                className="w-full h-full object-contain rounded-lg"
+              />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-base text-white tracking-tight">TIC360</span>
+                <span className="font-black text-base text-white tracking-tight">TIC360</span>
                 <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                  TRAINING
+                  MIS
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 font-medium truncate max-w-[160px]">
