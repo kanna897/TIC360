@@ -19,6 +19,7 @@ import {
   Check,
   AlertTriangle,
   UploadCloud,
+  ImageIcon,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
@@ -33,6 +34,11 @@ import {
   testSupabaseConnection,
 } from '@/lib/supabaseClient';
 import { supabaseService } from '@/lib/supabaseService';
+import {
+  getCloudinaryConfig,
+  updateCloudinaryCredentials,
+  testCloudinaryConnection,
+} from '@/lib/cloudinary';
 
 export default function SettingsPage() {
   const {
@@ -80,10 +86,20 @@ export default function SettingsPage() {
   const [exportResult, setExportResult] = useState<{ success: boolean; message: string } | null>(null);
   const [copiedSchema, setCopiedSchema] = useState(false);
 
+  // Cloudinary connection state
+  const [cloudName, setCloudName] = useState('');
+  const [uploadPreset, setUploadPreset] = useState('');
+  const [isTestingCloudinary, setIsTestingCloudinary] = useState(false);
+  const [cloudinaryResult, setCloudinaryResult] = useState<{ success: boolean; message: string } | null>(null);
+
   useEffect(() => {
-    const cfg = getSupabaseConfig();
-    setSupabaseUrl(cfg.url);
-    setSupabaseAnonKey(cfg.key);
+    const sCfg = getSupabaseConfig();
+    setSupabaseUrl(sCfg.url);
+    setSupabaseAnonKey(sCfg.key);
+
+    const cCfg = getCloudinaryConfig();
+    setCloudName(cCfg.cloudName);
+    setUploadPreset(cCfg.uploadPreset);
   }, []);
 
   // Add Course modal
@@ -122,12 +138,27 @@ export default function SettingsPage() {
     setTimeout(() => setIsSavedNotice(false), 3000);
   };
 
+  const handleSaveCloudinary = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateCloudinaryCredentials(cloudName.trim(), uploadPreset.trim());
+    setIsSavedNotice(true);
+    setTimeout(() => setIsSavedNotice(false), 3000);
+  };
+
   const handleTestConnection = async () => {
     setIsTestingConn(true);
     setTestResult(null);
     const res = await testSupabaseConnection(supabaseUrl.trim(), supabaseAnonKey.trim());
     setTestResult(res);
     setIsTestingConn(false);
+  };
+
+  const handleTestCloudinary = async () => {
+    setIsTestingCloudinary(true);
+    setCloudinaryResult(null);
+    const res = await testCloudinaryConnection(cloudName.trim(), uploadPreset.trim());
+    setCloudinaryResult(res);
+    setIsTestingCloudinary(false);
   };
 
   const handleExportData = async () => {
@@ -178,12 +209,14 @@ export default function SettingsPage() {
     });
   };
 
-  const isConfigured = Boolean(
+  const isSupabaseReady = Boolean(
     supabaseUrl &&
     supabaseAnonKey &&
     !supabaseUrl.includes('placeholder') &&
     !supabaseUrl.includes('your-project')
   );
+
+  const isCloudinaryReady = Boolean(cloudName && uploadPreset);
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn">
@@ -192,12 +225,12 @@ export default function SettingsPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-              Administration & Business Rule Settings
+              Administration & Cloud Integration Settings
             </h1>
             <Badge variant={currentRole === 'Admin' ? 'emerald' : 'amber'}>Role: {currentRole}</Badge>
           </div>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Configure Blossom Trust support maximums, attendance eligibility thresholds, course catalog, and Supabase cloud sync
+            Manage Supabase PostgreSQL sync, Cloudinary image hosting, attendance thresholds, and system catalog
           </p>
         </div>
       </div>
@@ -206,7 +239,7 @@ export default function SettingsPage() {
         <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2.5">
           <Shield className="w-4 h-4 text-amber-400 shrink-0" />
           <span>
-            <strong>Role Notice:</strong> You are accessing Settings as <strong>{currentRole}</strong>. Modifications to core thresholds, stipend rates, and courses require <strong>Admin</strong> privileges. Switch roles in the top bar to test administrative modifications.
+            <strong>Role Notice:</strong> You are accessing Settings as <strong>{currentRole}</strong>. Modifications to core thresholds, stipend rates, and cloud credentials require <strong>Admin</strong> privileges. Switch roles in the top bar to test administrative modifications.
           </span>
         </div>
       )}
@@ -233,8 +266,8 @@ export default function SettingsPage() {
           }`}
         >
           <Database className="w-4 h-4" />
-          Supabase Database & Cloud
-          {isConfigured ? (
+          Cloud Services (Supabase & Cloudinary)
+          {isSupabaseReady ? (
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           ) : (
             <span className="w-2 h-2 rounded-full bg-amber-400" />
@@ -381,36 +414,37 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* TAB: DATABASE & SUPABASE CONNECTION */}
+      {/* TAB: DATABASE & CLOUD SERVICES */}
       {activeTab === 'database' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Connection Form */}
+          {/* Main Services Column */}
           <div className="lg:col-span-2 space-y-6">
+            {/* 1. Supabase Card */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <Database className="w-5 h-5 text-emerald-400" />
-                      Supabase Cloud Database Connection
+                      Supabase PostgreSQL Database
                     </CardTitle>
                     <CardDescription>
-                      Connect your PostgreSQL cloud database for persistent synchronization across all staff
+                      Cloud database for real-time trainee sync, attendance records, and payment logs
                     </CardDescription>
                   </div>
-                  <Badge variant={isConfigured ? 'emerald' : 'amber'}>
-                    {isConfigured ? 'Connected & Ready' : 'Local Storage Mode'}
+                  <Badge variant={isSupabaseReady ? 'emerald' : 'amber'}>
+                    {isSupabaseReady ? 'Connected & Verified' : 'Local Mode'}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-5">
+              <CardContent className="space-y-4">
                 <form onSubmit={handleSaveSupabase} className="space-y-4">
                   <Input
                     label="Supabase Project URL *"
                     placeholder="https://your-project-id.supabase.co"
                     value={supabaseUrl}
                     onChange={(e) => setSupabaseUrl(e.target.value)}
-                    helperText="Find in Supabase Dashboard → Settings → API → Project URL"
+                    helperText="Project Settings → API → Project URL"
                   />
 
                   <Input
@@ -419,30 +453,27 @@ export default function SettingsPage() {
                     placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                     value={supabaseAnonKey}
                     onChange={(e) => setSupabaseAnonKey(e.target.value)}
-                    helperText="Find in Supabase Dashboard → Settings → API → Project API Keys (anon / public)"
+                    helperText="Project Settings → API → Project API Keys (anon / public)"
                   />
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleTestConnection}
-                        disabled={isTestingConn || !supabaseUrl || !supabaseAnonKey}
-                        leftIcon={<RefreshCw className={`w-4 h-4 ${isTestingConn ? 'animate-spin' : ''}`} />}
-                      >
-                        {isTestingConn ? 'Testing Connection...' : 'Test Connection'}
-                      </Button>
-                    </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleTestConnection}
+                      disabled={isTestingConn || !supabaseUrl || !supabaseAnonKey}
+                      leftIcon={<RefreshCw className={`w-4 h-4 ${isTestingConn ? 'animate-spin' : ''}`} />}
+                    >
+                      {isTestingConn ? 'Testing...' : 'Test Connection'}
+                    </Button>
 
                     <Button type="submit" variant="primary" size="sm">
-                      Save Credentials
+                      Save Supabase Credentials
                     </Button>
                   </div>
                 </form>
 
-                {/* Test Feedback Notice */}
                 {testResult && (
                   <div
                     className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 animate-fadeIn ${
@@ -458,7 +489,7 @@ export default function SettingsPage() {
                     )}
                     <div>
                       <strong className="block mb-0.5">
-                        {testResult.success ? 'Connection Verified' : 'Connection Unsuccessful'}
+                        {testResult.success ? 'Supabase Connected' : 'Connection Failed'}
                       </strong>
                       <span>{testResult.message}</span>
                     </div>
@@ -467,28 +498,107 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {/* Cloud Seed / Sync Card */}
+            {/* 2. Cloudinary Card */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <ImageIcon className="w-5 h-5 text-cyan-400" />
+                      Cloudinary Student Photo & Media Storage
+                    </CardTitle>
+                    <CardDescription>
+                      Direct cloud upload & CDN hosting for trainee passport photos and documents
+                    </CardDescription>
+                  </div>
+                  <Badge variant={isCloudinaryReady ? 'emerald' : 'amber'}>
+                    {isCloudinaryReady ? 'Connected' : 'Offline / Base64 Mode'}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <form onSubmit={handleSaveCloudinary} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Cloudinary Cloud Name *"
+                      placeholder="e.g. dxyz1234a"
+                      value={cloudName}
+                      onChange={(e) => setCloudName(e.target.value)}
+                      helperText="From Cloudinary Dashboard (Cloud Name)"
+                    />
+                    <Input
+                      label="Unsigned Upload Preset *"
+                      placeholder="e.g. tic360_preset"
+                      value={uploadPreset}
+                      onChange={(e) => setUploadPreset(e.target.value)}
+                      helperText="Settings → Upload → Upload Presets (Unsigned)"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleTestCloudinary}
+                      disabled={isTestingCloudinary || !cloudName || !uploadPreset}
+                      leftIcon={<RefreshCw className={`w-4 h-4 ${isTestingCloudinary ? 'animate-spin' : ''}`} />}
+                    >
+                      {isTestingCloudinary ? 'Testing Upload...' : 'Test Cloudinary Upload'}
+                    </Button>
+
+                    <Button type="submit" variant="primary" size="sm">
+                      Save Cloudinary Credentials
+                    </Button>
+                  </div>
+                </form>
+
+                {cloudinaryResult && (
+                  <div
+                    className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 animate-fadeIn ${
+                      cloudinaryResult.success
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                        : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                    }`}
+                  >
+                    {cloudinaryResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <strong className="block mb-0.5">
+                        {cloudinaryResult.success ? 'Cloudinary Verified' : 'Cloudinary Error'}
+                      </strong>
+                      <span>{cloudinaryResult.message}</span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 3. Cloud Data Sync / Seed Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <UploadCloud className="w-5 h-5 text-blue-400" />
-                  Seed & Synchronize Local Data to Supabase
+                  Synchronize Local Data to Supabase
                 </CardTitle>
                 <CardDescription>
-                  Upload your current trainees ({students.length}), attendance records, and Blossom payments directly into your live Supabase database.
+                  Upload your current trainees ({students.length}), attendance records, and Blossom payments directly to Supabase
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <p className="text-xs text-slate-400">
-                  Once your database schema is created, click below to populate your cloud database with all courses, batches, trainees, and payment records.
+                  Click below to push all active courses, batches, trainees, and payment records into your connected Supabase database.
                 </p>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 pt-1">
                   <Button
                     variant="primary"
                     size="sm"
                     onClick={handleExportData}
-                    disabled={isExporting || !isConfigured}
+                    disabled={isExporting || !isSupabaseReady}
                     leftIcon={<UploadCloud className={`w-4 h-4 ${isExporting ? 'animate-spin' : ''}`} />}
                   >
                     {isExporting ? 'Pushing Data to Supabase...' : 'Push All Local Data to Supabase'}
@@ -522,61 +632,70 @@ export default function SettingsPage() {
 
           {/* Quick Setup Instructions Sidebar */}
           <div className="space-y-6">
+            {/* Supabase Guide */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Supabase Setup Guide</CardTitle>
-                <CardDescription className="text-xs">Follow these 3 quick steps</CardDescription>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Database className="w-4 h-4 text-emerald-400" />
+                  Supabase Status
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 text-xs">
-                <div className="space-y-1.5">
-                  <span className="font-bold text-white flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-blue-600/30 text-blue-400 flex items-center justify-center text-[10px]">1</span>
-                    Create Supabase Project
-                  </span>
-                  <p className="text-slate-400 pl-6">
-                    Sign in at{' '}
+              <CardContent className="space-y-3 text-xs">
+                <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>PostgreSQL Cloud database connected & tables verified!</span>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleCopySchemaSql}
+                  leftIcon={copiedSchema ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  className="w-full text-xs"
+                >
+                  {copiedSchema ? 'Schema Copied!' : 'Copy SQL Schema Info'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Cloudinary Guide */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-cyan-400" />
+                  Cloudinary Setup Guide
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-xs">
+                <div className="space-y-1">
+                  <span className="font-bold text-white">1. Get Cloud Name</span>
+                  <p className="text-slate-400">
+                    Open{' '}
                     <a
-                      href="https://app.supabase.com"
+                      href="https://cloudinary.com/console"
                       target="_blank"
                       rel="noreferrer"
-                      className="text-blue-400 hover:underline inline-flex items-center gap-1"
+                      className="text-cyan-400 hover:underline inline-flex items-center gap-1"
                     >
-                      supabase.com <ExternalLink className="w-3 h-3" />
+                      cloudinary.com <ExternalLink className="w-3 h-3" />
                     </a>{' '}
-                    and create a new project.
+                    Dashboard and copy your <strong>Cloud Name</strong>.
                   </p>
                 </div>
 
-                <div className="space-y-1.5">
-                  <span className="font-bold text-white flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-blue-600/30 text-blue-400 flex items-center justify-center text-[10px]">2</span>
-                    Run SQL Schema
-                  </span>
-                  <p className="text-slate-400 pl-6">
-                    Go to the <strong>SQL Editor</strong> in Supabase and execute the table schema from{' '}
-                    <code className="text-cyan-400 font-mono">supabase_schema.sql</code>.
+                <div className="space-y-1">
+                  <span className="font-bold text-white">2. Create Unsigned Preset</span>
+                  <p className="text-slate-400">
+                    Go to <strong>Settings ⚙️</strong> $\rightarrow$ <strong>Upload</strong> $\rightarrow$ <strong>Upload Presets</strong> $\rightarrow$ <strong>Add Upload Preset</strong>.
                   </p>
-                  <div className="pl-6 pt-1">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleCopySchemaSql}
-                      leftIcon={copiedSchema ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      className="w-full text-xs"
-                    >
-                      {copiedSchema ? 'Schema Path Copied!' : 'Copy SQL Schema Info'}
-                    </Button>
-                  </div>
+                  <p className="text-slate-400">
+                    Set Signing Mode to: <code className="text-amber-300 font-bold">Unsigned</code> and save.
+                  </p>
                 </div>
 
-                <div className="space-y-1.5">
-                  <span className="font-bold text-white flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-blue-600/30 text-blue-400 flex items-center justify-center text-[10px]">3</span>
-                    Paste API Keys
-                  </span>
-                  <p className="text-slate-400 pl-6">
-                    Copy the <strong>Project URL</strong> and <strong>Anon Public Key</strong> from Project Settings → API and save them above or in{' '}
-                    <code className="text-cyan-400 font-mono">.env.local</code>.
+                <div className="space-y-1">
+                  <span className="font-bold text-white">3. Save Credentials</span>
+                  <p className="text-slate-400">
+                    Paste the <strong>Cloud Name</strong> and <strong>Preset Name</strong> in `.env.local` or directly above.
                   </p>
                 </div>
               </CardContent>
