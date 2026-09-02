@@ -74,10 +74,16 @@ export const testSupabaseConnection = async (
     const { data, error } = await client.from('students').select('count', { count: 'exact', head: true });
     
     if (error) {
-      if (error.code === 'PGRST116' || error.message.includes('relation "students" does not exist') || error.code === '42P01') {
+      if (
+        error.code === 'PGRST116' ||
+        error.code === 'PGRST205' ||
+        error.code === '42P01' ||
+        error.message.includes('relation "students" does not exist') ||
+        error.message.includes('Could not find the table')
+      ) {
         return {
           success: true,
-          message: 'Connected to Supabase! (Note: tables not yet created. Run supabase_schema.sql in the Supabase SQL Editor)',
+          message: 'Connected to Supabase! Note: Tables are not created yet. Please run supabase_schema.sql in the Supabase SQL Editor.',
         };
       }
       return {
