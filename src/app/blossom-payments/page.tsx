@@ -522,7 +522,7 @@ export default function BlossomPaymentsPage() {
             <div className="overflow-x-auto w-full">
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-slate-800 bg-slate-900/90 text-[10px] uppercase tracking-wider font-extrabold text-slate-300 select-none">
+                  <tr className="border-b border-slate-800 bg-slate-900/90 text-[11px] uppercase tracking-wider font-extrabold text-slate-300 select-none">
                     <th className="py-2.5 px-1.5 text-center w-8 text-slate-400">NO</th>
                     <th className="py-2.5 px-1.5 text-white whitespace-nowrap">UT NO</th>
                     <th className="py-2.5 px-1.5 text-slate-100 whitespace-nowrap">NAME</th>
@@ -551,57 +551,57 @@ export default function BlossomPaymentsPage() {
                         className="hover:bg-slate-900/80 transition-colors group border-b border-slate-800/60"
                       >
                         {/* NO */}
-                        <td className="py-2.5 px-1.5 text-center font-bold text-slate-300 text-[10px] sm:text-xs">
+                        <td className="py-3 px-1.5 text-center font-bold text-slate-300 text-xs">
                           {(currentPage - 1) * itemsPerPage + index + 1}
                         </td>
 
                         {/* UT NO */}
-                        <td className="py-2.5 px-1.5 font-extrabold text-white font-mono text-[10px] sm:text-xs tracking-wide whitespace-nowrap">
+                        <td className="py-3 px-1.5 font-extrabold text-white font-mono text-xs tracking-wide whitespace-nowrap">
                           {stu.utNumber}
                         </td>
 
                         {/* NAME */}
-                        <td className="py-2.5 px-1.5 font-bold text-slate-100 group-hover:text-blue-400 transition-colors text-[10px] sm:text-xs whitespace-nowrap">
+                        <td className="py-3 px-1.5 font-bold text-slate-100 group-hover:text-blue-400 transition-colors text-xs whitespace-nowrap">
                           {stu.fullName}
                         </td>
 
                         {/* PHONE NO */}
-                        <td className="py-2.5 px-1.5 font-mono font-medium text-slate-200 text-[10px] sm:text-xs whitespace-nowrap">
+                        <td className="py-3 px-1.5 font-mono font-bold text-slate-200 text-xs whitespace-nowrap">
                           {stu.phone.replace('+94 ', '0').replace(/ /g, '')}
                         </td>
 
                         {/* DISTRICT */}
-                        <td className="py-2.5 px-1.5 text-slate-300 font-medium text-[10px] sm:text-xs whitespace-nowrap">
+                        <td className="py-3 px-1.5 text-slate-300 font-semibold text-xs whitespace-nowrap">
                           {stu.district}
                         </td>
 
                         {/* BENEFICIARY NAME */}
-                        <td className="py-2.5 px-1.5 text-slate-100 font-bold text-[10px] sm:text-xs whitespace-nowrap">
+                        <td className="py-3 px-1.5 text-slate-100 font-bold text-xs whitespace-nowrap">
                           {stu.bankDetails?.beneficiaryName || stu.fullName}
                         </td>
 
                         {/* BLOSSOM TRUST AMT */}
-                        <td className="py-2.5 px-1.5 font-extrabold text-indigo-400 font-mono tracking-wide text-[10px] sm:text-xs whitespace-nowrap text-center">
+                        <td className="py-3 px-1.5 font-extrabold text-indigo-400 font-mono tracking-wide text-xs whitespace-nowrap text-center">
                           {stu.isBlossomTrust ? 'LKR 15,000' : 'LKR 0'}
                         </td>
 
                         {/* BANK */}
-                        <td className="py-2.5 px-1.5 text-slate-200 font-semibold text-[10px] sm:text-xs whitespace-nowrap">
+                        <td className="py-3 px-1.5 text-slate-200 font-bold text-xs whitespace-nowrap">
                           {stu.bankDetails?.bankName || 'N/A'}
                         </td>
 
                         {/* BRANCH NAME */}
-                        <td className="py-2.5 px-1.5 text-slate-200 font-medium text-[10px] sm:text-xs whitespace-nowrap">
+                        <td className="py-3 px-1.5 text-slate-200 font-semibold text-xs whitespace-nowrap">
                           {stu.bankDetails?.branchName || 'N/A'}
                         </td>
 
                         {/* BR. CODE */}
-                        <td className="py-2.5 px-1.5 text-center font-mono font-extrabold text-slate-200 text-[10px] sm:text-xs whitespace-nowrap">
+                        <td className="py-3 px-1.5 text-center font-mono font-extrabold text-slate-200 text-xs whitespace-nowrap">
                           {stu.bankDetails?.branchCode || '1'}
                         </td>
 
                         {/* ACCOUNT NO */}
-                        <td className="py-2.5 px-1.5 font-mono font-extrabold text-white tracking-wider text-[10px] sm:text-xs whitespace-nowrap">
+                        <td className="py-3 px-1.5 font-mono font-extrabold text-white tracking-wider text-xs whitespace-nowrap">
                           {stu.bankDetails?.accountNumber || 'N/A'}
                         </td>
 
