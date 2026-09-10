@@ -141,30 +141,20 @@ export default function DashboardPage() {
   ];
 
   const outcomePieData = [
-    { name: 'Employed', value: employedCount || 1, color: '#10b981' },
-    { name: 'Internship', value: internshipCount || 1, color: '#3b82f6' },
+    { name: 'Employed', value: employedCount || 0, color: '#10b981' },
+    { name: 'Internship', value: internshipCount || 0, color: '#3b82f6' },
     { name: 'Higher Studies', value: higherStudiesCount || 0, color: '#8b5cf6' },
     { name: 'Self Employed', value: selfEmployedCount || 0, color: '#06b6d4' },
     { name: 'Looking / Unemployed', value: unemployedCount || 0, color: '#f59e0b' },
   ];
 
-  // Mock historical trend data for Stacked Bar Charts
+  // Real historical trend data for Stacked Bar Charts (currently showing only latest month since we have no history)
   const attendanceTrendData = [
-    { month: 'Mar', excellent: 40, average: 15, critical: 2 },
-    { month: 'Apr', excellent: 42, average: 18, critical: 5 },
-    { month: 'May', excellent: 38, average: 20, critical: 8 },
-    { month: 'Jun', excellent: 45, average: 12, critical: 3 },
-    { month: 'Jul', excellent: 48, average: 10, critical: 4 },
-    { month: 'Aug', excellent: goodAttendanceCount || 42, average: lowAttendanceCount || 18, critical: criticalAttendanceCount || 5 },
+    { month: 'Aug', excellent: goodAttendanceCount || 0, average: lowAttendanceCount || 0, critical: criticalAttendanceCount || 0 },
   ];
 
   const paymentTrendData = [
-    { month: 'Mar', eligible: 20, paid: 20, notEligible: 2 },
-    { month: 'Apr', eligible: 22, paid: 21, notEligible: 3 },
-    { month: 'May', eligible: 18, paid: 15, notEligible: 8 },
-    { month: 'Jun', eligible: 25, paid: 25, notEligible: 1 },
-    { month: 'Jul', eligible: 23, paid: 20, notEligible: 4 },
-    { month: 'Aug', eligible: eligiblePayments || 21, paid: paidPayments || 8, notEligible: notEligiblePayments || 5 },
+    { month: 'Aug', eligible: eligiblePayments || 0, paid: paidPayments || 0, notEligible: notEligiblePayments || 0 },
   ];
 
   return (
