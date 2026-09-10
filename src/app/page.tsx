@@ -74,7 +74,7 @@ export default function DashboardPage() {
           currentMonthAttendance.reduce((acc, curr) => acc + curr.attendancePercentage, 0) /
             currentMonthAttendance.length
         )
-      : 88;
+      : 0;
 
   const goodAttendanceCount = currentMonthAttendance.filter(
     (a) => a.attendancePercentage >= settings.attendanceGoodThreshold
