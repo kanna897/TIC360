@@ -486,6 +486,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     let createdCount = 0;
     const now = new Date().toISOString().slice(0, 10);
 
+    const parseAmt = (val: string | number | undefined): number => {
+      if (val === undefined || val === null) return 15000;
+      if (typeof val === 'number') return val;
+      const cleaned = String(val).replace(/[^0-9.]/g, '');
+      return cleaned ? parseFloat(cleaned) : 15000;
+    };
+
     setStudents((prev) => {
       const nextStudents = [...prev];
 
@@ -516,6 +523,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           nextStudents[existingIdx] = {
             ...existing,
             isBlossomTrust: true,
+            blossomAmount: row.amount !== undefined ? parseAmt(row.amount) : (existing.blossomAmount || 15000),
             phone: row.phone || existing.phone,
             district: row.district || existing.district,
             bankDetails: {
@@ -566,6 +574,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
             courseId: 'CRS-ICT-01',
             courseName: 'ICT & Software Engineering',
             isBlossomTrust: true,
+            blossomAmount: row.amount !== undefined ? parseAmt(row.amount) : 15000,
             currentStatus: 'Active',
             bankDetails,
             createdAt: now,
@@ -644,7 +653,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
         let isEligible = true;
         let ineligibilityReason: string | undefined = undefined;
-        let amount = settings.blossomMonthlyMax;
+        let amount = student.blossomAmount !== undefined ? student.blossomAmount : settings.blossomMonthlyMax;
         let paymentStatus: BlossomPaymentStatus = 'Eligible';
 
         if (isDropout) {

@@ -57,6 +57,7 @@ export interface Student {
   group?: 'Group A' | 'Group B' | 'A' | 'B';
   photoUrl?: string;
   isBlossomTrust: boolean;
+  blossomAmount?: number;
   currentStatus: StudentStatus;
   bankDetails?: StudentBankDetails;
   blossomApplication?: BlossomApplication;

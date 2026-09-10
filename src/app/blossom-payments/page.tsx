@@ -582,7 +582,7 @@ export default function BlossomPaymentsPage() {
 
                         {/* BLOSSOM TRUST AMT */}
                         <td className="py-3 px-1.5 font-extrabold text-indigo-400 font-mono tracking-wide text-xs whitespace-nowrap text-center">
-                          {stu.isBlossomTrust ? 'LKR 15,000' : 'LKR 0'}
+                          {stu.isBlossomTrust ? (stu.blossomAmount !== undefined ? `LKR ${stu.blossomAmount.toLocaleString()}` : 'LKR 15,000') : 'LKR 0'}
                         </td>
 
                         {/* BANK */}
@@ -1045,6 +1045,21 @@ export default function BlossomPaymentsPage() {
                     return { ...prev, district: e.target.value };
                   });
                 }}
+              />
+            </div>
+
+            <div className="border-t border-slate-800/80 pt-3">
+              <Input
+                label="Blossom Trust Amount (LKR)"
+                type="number"
+                value={editingStudent.blossomAmount !== undefined ? editingStudent.blossomAmount : 15000}
+                onChange={(e) => {
+                  setEditingStudent((prev) => {
+                    if (!prev) return null;
+                    return { ...prev, blossomAmount: Number(e.target.value) };
+                  });
+                }}
+                required
               />
             </div>
 
