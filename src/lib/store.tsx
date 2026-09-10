@@ -168,6 +168,7 @@ const STORAGE_KEYS = {
   ATTENDANCE: 'tic360_v2_attendance',
   ATT_SESSIONS: 'tic360_v2_att_sessions',
   ATT_MARKS: 'tic360_v2_att_marks',
+  DAILY_LOGS: 'tic360_v2_daily_logs',
   PAYMENTS: 'tic360_v2_payments',
   DROPOUTS: 'tic360_v2_dropouts',
   ASSESSMENTS: 'tic360_v2_assessments',

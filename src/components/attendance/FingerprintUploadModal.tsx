@@ -73,7 +73,7 @@ export const FingerprintUploadModal: React.FC<FingerprintUploadModalProps> = ({
       onClose={onClose}
       title="Upload Fingerprint Attendance"
       subtitle="Upload a CSV file from the biometric machine to auto-calculate daily attendance & dedication hours."
-      maxWidth="3xl"
+      maxWidth="4xl"
     >
       <div className="space-y-6">
         {/* Upload Form */}
@@ -168,7 +168,7 @@ export const FingerprintUploadModal: React.FC<FingerprintUploadModalProps> = ({
                             <Badge variant="amber">Late</Badge>
                           )}
                           {log.status === 'A' && (
-                            <Badge variant="destructive">Absent</Badge>
+                            <Badge variant="rose">Absent</Badge>
                           )}
                         </td>
                         <td className="py-2.5 px-3 text-center font-bold text-indigo-400">

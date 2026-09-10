@@ -397,7 +397,7 @@ export default function BlossomPaymentsPage() {
         <div className="flex flex-wrap items-center gap-2.5">
           {currentRole !== 'Student' && (
             <Button
-              variant="emerald"
+              variant="success"
               size="sm"
               onClick={() => setIsUploadModalOpen(true)}
               leftIcon={<UploadCloud className="w-4 h-4 text-emerald-300" />}
