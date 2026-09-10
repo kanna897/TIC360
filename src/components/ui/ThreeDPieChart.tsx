@@ -45,7 +45,8 @@ export const ThreeDPieChart: React.FC<ThreeDPieChartProps> = ({
   const rx = Math.min(width * 0.42, 115);
   const ry = rx * 0.36; // compression → 3D tilt
 
-  const total = data.reduce((s, d) => s + d.value, 0) || 1;
+  const realTotal = data.reduce((s, d) => s + d.value, 0);
+  const total = realTotal || 1;
 
   // Build slice angles
   let angle = -Math.PI / 2;
@@ -173,7 +174,7 @@ export const ThreeDPieChart: React.FC<ThreeDPieChartProps> = ({
           fill="white"
           style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }}
         >
-          {total}
+          {realTotal}
         </text>
         <text
           x={cx}
