@@ -377,7 +377,7 @@ export default function DashboardPage() {
               height={200}
               depth={26}
               data={[
-                { name: 'Active Students', value: activeStudents || 1, color: '#10b981' },
+                { name: 'Active Students', value: activeStudents || 0, color: '#10b981' },
                 { name: 'Dropped Out', value: dropoutStudents || 0, color: '#f43f5e' },
               ]}
             />
@@ -392,7 +392,7 @@ export default function DashboardPage() {
               height={200}
               depth={26}
               data={[
-                { name: 'Full Stack', value: Math.round(totalStudents * 0.65) || 1, color: '#8b5cf6' },
+                { name: 'Full Stack', value: Math.round(totalStudents * 0.65) || 0, color: '#8b5cf6' },
                 { name: 'Front End', value: Math.round(totalStudents * 0.35) || 0, color: '#06b6d4' },
               ]}
             />
@@ -408,7 +408,7 @@ export default function DashboardPage() {
               depth={26}
               data={[
                 { name: 'Completed', value: completedStudents || 0, color: '#f59e0b' },
-                { name: 'In Progress', value: activeStudents || 1, color: '#3b82f6' },
+                { name: 'In Progress', value: activeStudents || 0, color: '#3b82f6' },
                 { name: 'Not Started', value: Math.max(0, totalStudents - completedStudents - activeStudents) || 0, color: '#475569' },
               ]}
             />
@@ -425,7 +425,7 @@ export default function DashboardPage() {
               data={[
                 { name: 'Employed', value: employedCount || 0, color: '#10b981' },
                 { name: 'Internship', value: internshipCount || 0, color: '#3b82f6' },
-                { name: 'Unemployed', value: unemployedCount || 1, color: '#64748b' },
+                { name: 'Unemployed', value: unemployedCount || 0, color: '#64748b' },
               ]}
             />
           </div>
@@ -441,7 +441,7 @@ export default function DashboardPage() {
               data={[
                 { name: 'Higher Studies', value: higherStudiesCount || 0, color: '#c084fc' },
                 { name: 'Self Employed', value: selfEmployedCount || 0, color: '#f472b6' },
-                { name: 'Looking', value: unemployedCount || 1, color: '#94a3b8' },
+                { name: 'Looking', value: unemployedCount || 0, color: '#94a3b8' },
               ]}
             />
           </div>
@@ -455,7 +455,7 @@ export default function DashboardPage() {
               height={200}
               depth={26}
               data={[
-                { name: 'Blossom Trust', value: blossomCount || 1, color: '#f43f5e' },
+                { name: 'Blossom Trust', value: blossomCount || 0, color: '#f43f5e' },
                 { name: 'Non-Blossom', value: nonBlossomCount || 0, color: '#6366f1' },
               ]}
             />
