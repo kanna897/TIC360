@@ -260,8 +260,8 @@ export default function BlossomPaymentsPage() {
             return {
               utNumber,
               fullName: fullName || (utNumber ? `Scholar ${utNumber}` : ''),
-              phone: phone ? (phone.startsWith('0') || phone.startsWith('+') ? phone : `0${phone}`) : '',
-              district: district || 'Jaffna',
+              phone: phone ? (String(phone).startsWith('0') || String(phone).startsWith('+') ? String(phone) : `0${phone}`) : '',
+              district: district || '',
               beneficiaryName: beneficiaryName || fullName,
               amount: amount || 'LKR 15,000',
               bankName: bankName || 'Bank of Ceylon (BOC)',
@@ -975,10 +975,33 @@ export default function BlossomPaymentsPage() {
         <Modal
           isOpen={true}
           onClose={() => setEditingStudent(null)}
-          title={`Edit Bank Details: ${editingStudent.fullName}`}
+          title={`Edit Student Details: ${editingStudent.fullName}`}
           maxWidth="md"
         >
           <form onSubmit={handleUpdateStudentSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Phone Number"
+                value={editingStudent.phone || ''}
+                onChange={(e) => {
+                  setEditingStudent((prev) => {
+                    if (!prev) return null;
+                    return { ...prev, phone: e.target.value };
+                  });
+                }}
+              />
+              <Input
+                label="District"
+                value={editingStudent.district || ''}
+                onChange={(e) => {
+                  setEditingStudent((prev) => {
+                    if (!prev) return null;
+                    return { ...prev, district: e.target.value };
+                  });
+                }}
+              />
+            </div>
+
             <div>
               <Select
                 label="Bank Name (Sri Lanka)"
@@ -1105,7 +1128,7 @@ export default function BlossomPaymentsPage() {
                 Cancel
               </Button>
               <Button type="submit" variant="primary">
-                Save Bank Details
+                Save Details
               </Button>
             </div>
           </form>
