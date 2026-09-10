@@ -265,7 +265,22 @@ export default function BlossomPaymentsPage() {
             const phone = getVal('phone no', 'phone', 'mobile', 'telephone', 'contact');
             const district = getVal('district', 'location', 'city');
             const beneficiaryName = getVal('beneficiary name', 'beneficiary', 'payee name', 'account name');
-            const amount = getVal('blossom trust amt', 'blossom amt', 'amount', 'stipend', 'blossom trust amount', 'payment', 'payment amount', 'pay amount', 'pay', 'amt', 'value', 'scholarship');
+            const getAmountVal = () => {
+              const exact = getVal('blossom trust amt', 'blossom amt', 'amount', 'stipend', 'blossom trust amount', 'payment', 'payment amount', 'pay amount', 'pay', 'amt', 'value', 'scholarship', 'total', 'monthly payment', 'allowance', 'grant');
+              if (exact) return exact;
+
+              // Fallback to substring match for anything containing amount/pay/blossom/lkr
+              const foundKey = Object.keys(row).find(rk => {
+                const lrk = rk.toLowerCase();
+                return lrk.includes('amount') || lrk.includes('amt') || lrk.includes('pay') || lrk.includes('blossom') || lrk.includes('stipend') || lrk.includes('lkr') || lrk.includes('rs');
+              });
+              if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null && String(row[foundKey]).trim() !== '') {
+                return String(row[foundKey]).trim();
+              }
+              return '';
+            };
+
+            const amount = getAmountVal();
             const bankName = getVal('bank', 'bank name', 'bank name (sri lanka)');
             const branchName = getVal('branch name', 'branch');
             const branchCode = getVal('br code', 'branch code', 'br. code', 'brcode', 'code');
@@ -1340,7 +1355,7 @@ export default function BlossomPaymentsPage() {
                           <td className="py-2 px-3 text-slate-300">{row.phone}</td>
                           <td className="py-2 px-3 text-slate-300 font-sans">{row.district}</td>
                           <td className="py-2 px-3 text-slate-200 font-sans">{row.beneficiaryName}</td>
-                          <td className="py-2 px-3 text-indigo-400 font-bold">{row.amount}</td>
+                          <td className="py-2 px-3 text-indigo-400 font-bold">{row.amount ? (String(row.amount).toUpperCase().includes('LKR') ? row.amount : `LKR ${row.amount}`) : 'LKR 15,000'}</td>
                           <td className="py-2 px-3 text-slate-300 font-sans">{row.bankName}</td>
                           <td className="py-2 px-3 text-slate-300 font-sans">{row.branchName}</td>
                           <td className="py-2 px-3 text-slate-300">{row.branchCode}</td>
