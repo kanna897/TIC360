@@ -265,7 +265,7 @@ export default function BlossomPaymentsPage() {
             const phone = getVal('phone no', 'phone', 'mobile', 'telephone', 'contact');
             const district = getVal('district', 'location', 'city');
             const beneficiaryName = getVal('beneficiary name', 'beneficiary', 'payee name', 'account name');
-            const amount = getVal('blossom trust amt', 'blossom amt', 'amount', 'stipend', 'blossom trust amount', 'payment', 'payment amount', 'pay amount', 'pay');
+            const amount = getVal('blossom trust amt', 'blossom amt', 'amount', 'stipend', 'blossom trust amount', 'payment', 'payment amount', 'pay amount', 'pay', 'amt', 'value', 'scholarship');
             const bankName = getVal('bank', 'bank name', 'bank name (sri lanka)');
             const branchName = getVal('branch name', 'branch');
             const branchCode = getVal('br code', 'branch code', 'br. code', 'brcode', 'code');
@@ -286,10 +286,9 @@ export default function BlossomPaymentsPage() {
           })
           .filter((r) => r.fullName || r.utNumber);
 
-        // Check for duplicates
+        // Check for duplicates in the Excel file itself
         const seenUt = new Set<string>();
         let duplicateInFile = '';
-        let duplicateInDb = '';
 
         for (const row of parsed) {
           if (row.utNumber) {
@@ -299,24 +298,11 @@ export default function BlossomPaymentsPage() {
               break;
             }
             seenUt.add(cleanUt);
-
-            const exists = students.find((s) => s.utNumber.toLowerCase() === cleanUt && s.isBlossomTrust);
-            if (exists) {
-              duplicateInDb = row.utNumber;
-              break;
-            }
           }
         }
 
         if (duplicateInFile) {
           alert(`Error: Duplicate UT Number (${duplicateInFile}) found inside the uploaded Excel file. Upload aborted.`);
-          setParsedExcelRows([]);
-          setIsParsing(false);
-          return;
-        }
-
-        if (duplicateInDb) {
-          alert(`Error: Student with UT Number ${duplicateInDb} is already a Blossom Trust beneficiary in the system. Upload aborted to prevent duplicates.`);
           setParsedExcelRows([]);
           setIsParsing(false);
           return;
