@@ -73,6 +73,10 @@ export default function BlossomPaymentsPage() {
   const [isParsing, setIsParsing] = useState(false);
   const [importSummary, setImportSummary] = useState<{ updatedCount: number; createdCount: number } | null>(null);
 
+  // Pagination State for Blossom Students Table
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
   const selectedMonthString = `${selectedYear}-${selectedMonthOnly}`; // '2026-08'
 
   // Only Blossom Trust Students (or all students with search & district filtering)
@@ -96,6 +100,16 @@ export default function BlossomPaymentsPage() {
   const uniqueDistricts = useMemo(() => {
     return Array.from(new Set(students.map((s) => s.district).filter(Boolean)));
   }, [students]);
+
+  // Reset pagination when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, districtFilter, students]);
+
+  const totalPages = Math.ceil(blossomStudents.length / itemsPerPage);
+  const paginatedBlossomStudents = useMemo(() => {
+    return blossomStudents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [blossomStudents, currentPage]);
 
   // Payments for this month
   const currentMonthPayments = useMemo(() => {
@@ -508,106 +522,106 @@ export default function BlossomPaymentsPage() {
             <div className="overflow-x-auto w-full">
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
-                  <tr className="border-b-2 border-slate-800 bg-slate-900/90 text-xs uppercase tracking-wider font-extrabold text-slate-300 select-none">
-                    <th className="py-3.5 px-2 text-center w-8 text-slate-400">NO</th>
-                    <th className="py-3.5 px-2 text-white whitespace-nowrap">UT NO</th>
-                    <th className="py-3.5 px-2.5 text-slate-100 whitespace-nowrap">NAME</th>
-                    <th className="py-3.5 px-2 text-slate-200 whitespace-nowrap">PHONE NO</th>
-                    <th className="py-3.5 px-2 text-slate-200 whitespace-nowrap">DISTRICT</th>
-                    <th className="py-3.5 px-2.5 text-slate-100 whitespace-nowrap">BENEFICIARY NAME</th>
-                    <th className="py-3.5 px-2 text-indigo-400 font-black whitespace-nowrap text-center">BLOSSOM TRUST AMT</th>
-                    <th className="py-3.5 px-2 text-slate-200 whitespace-nowrap">BANK</th>
-                    <th className="py-3.5 px-2 text-slate-200 whitespace-nowrap">BRANCH NAME</th>
-                    <th className="py-3.5 px-1.5 text-center text-slate-200 whitespace-nowrap">BR. CODE</th>
-                    <th className="py-3.5 px-2 text-slate-100 whitespace-nowrap">ACCOUNT NO</th>
-                    <th className="py-3.5 px-2 text-center text-slate-400 whitespace-nowrap">ACTION</th>
+                  <tr className="border-b border-slate-800 bg-slate-900/90 text-[10px] uppercase tracking-wider font-extrabold text-slate-300 select-none">
+                    <th className="py-2.5 px-1.5 text-center w-8 text-slate-400">NO</th>
+                    <th className="py-2.5 px-1.5 text-white whitespace-nowrap">UT NO</th>
+                    <th className="py-2.5 px-1.5 text-slate-100 whitespace-nowrap">NAME</th>
+                    <th className="py-2.5 px-1.5 text-slate-200 whitespace-nowrap">PHONE NO</th>
+                    <th className="py-2.5 px-1.5 text-slate-200 whitespace-nowrap">DISTRICT</th>
+                    <th className="py-2.5 px-1.5 text-slate-100 whitespace-nowrap">BENEFICIARY NAME</th>
+                    <th className="py-2.5 px-1.5 text-indigo-400 font-black whitespace-nowrap text-center">BLOSSOM TRUST AMT</th>
+                    <th className="py-2.5 px-1.5 text-slate-200 whitespace-nowrap">BANK</th>
+                    <th className="py-2.5 px-1.5 text-slate-200 whitespace-nowrap">BRANCH NAME</th>
+                    <th className="py-2.5 px-1.5 text-center text-slate-200 whitespace-nowrap">BR. CODE</th>
+                    <th className="py-2.5 px-1.5 text-slate-100 whitespace-nowrap">ACCOUNT NO</th>
+                    <th className="py-2.5 px-1.5 text-center text-slate-400 whitespace-nowrap">ACTION</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/80 text-sm">
-                  {blossomStudents.length === 0 ? (
+                  {paginatedBlossomStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="py-14 text-center text-base text-slate-400">
+                      <td colSpan={12} className="py-14 text-center text-sm text-slate-400">
                         No Blossom Trust beneficiary records found matching your filters.
                       </td>
                     </tr>
                   ) : (
-                    blossomStudents.map((stu, index) => (
+                    paginatedBlossomStudents.map((stu, index) => (
                       <tr
                         key={stu.id}
                         className="hover:bg-slate-900/80 transition-colors group border-b border-slate-800/60"
                       >
                         {/* NO */}
-                        <td className="py-3.5 px-2 text-center font-bold text-slate-300 text-sm sm:text-base">
-                          {index + 1}
+                        <td className="py-2.5 px-1.5 text-center font-bold text-slate-300 text-[10px] sm:text-xs">
+                          {(currentPage - 1) * itemsPerPage + index + 1}
                         </td>
 
                         {/* UT NO */}
-                        <td className="py-3.5 px-2 font-extrabold text-white font-mono text-sm sm:text-base tracking-wide whitespace-nowrap">
+                        <td className="py-2.5 px-1.5 font-extrabold text-white font-mono text-[10px] sm:text-xs tracking-wide whitespace-nowrap">
                           {stu.utNumber}
                         </td>
 
                         {/* NAME */}
-                        <td className="py-3.5 px-2.5 font-bold text-slate-100 group-hover:text-blue-400 transition-colors text-sm sm:text-base whitespace-nowrap">
+                        <td className="py-2.5 px-1.5 font-bold text-slate-100 group-hover:text-blue-400 transition-colors text-[10px] sm:text-xs whitespace-nowrap">
                           {stu.fullName}
                         </td>
 
                         {/* PHONE NO */}
-                        <td className="py-3.5 px-2 font-mono font-medium text-slate-200 text-sm sm:text-base whitespace-nowrap">
+                        <td className="py-2.5 px-1.5 font-mono font-medium text-slate-200 text-[10px] sm:text-xs whitespace-nowrap">
                           {stu.phone.replace('+94 ', '0').replace(/ /g, '')}
                         </td>
 
                         {/* DISTRICT */}
-                        <td className="py-3.5 px-2 text-slate-300 font-medium text-sm sm:text-base whitespace-nowrap">
+                        <td className="py-2.5 px-1.5 text-slate-300 font-medium text-[10px] sm:text-xs whitespace-nowrap">
                           {stu.district}
                         </td>
 
                         {/* BENEFICIARY NAME */}
-                        <td className="py-3.5 px-2.5 text-slate-100 font-bold text-sm sm:text-base whitespace-nowrap">
+                        <td className="py-2.5 px-1.5 text-slate-100 font-bold text-[10px] sm:text-xs whitespace-nowrap">
                           {stu.bankDetails?.beneficiaryName || stu.fullName}
                         </td>
 
                         {/* BLOSSOM TRUST AMT */}
-                        <td className="py-3.5 px-2 font-extrabold text-indigo-400 font-mono tracking-wide text-sm sm:text-base whitespace-nowrap text-center">
+                        <td className="py-2.5 px-1.5 font-extrabold text-indigo-400 font-mono tracking-wide text-[10px] sm:text-xs whitespace-nowrap text-center">
                           {stu.isBlossomTrust ? 'LKR 15,000' : 'LKR 0'}
                         </td>
 
                         {/* BANK */}
-                        <td className="py-3.5 px-2 text-slate-200 font-semibold text-sm sm:text-base whitespace-nowrap">
+                        <td className="py-2.5 px-1.5 text-slate-200 font-semibold text-[10px] sm:text-xs whitespace-nowrap">
                           {stu.bankDetails?.bankName || 'N/A'}
                         </td>
 
                         {/* BRANCH NAME */}
-                        <td className="py-3.5 px-2 text-slate-200 font-medium text-sm sm:text-base whitespace-nowrap">
+                        <td className="py-2.5 px-1.5 text-slate-200 font-medium text-[10px] sm:text-xs whitespace-nowrap">
                           {stu.bankDetails?.branchName || 'N/A'}
                         </td>
 
                         {/* BR. CODE */}
-                        <td className="py-3.5 px-1.5 text-center font-mono font-extrabold text-slate-200 text-sm sm:text-base whitespace-nowrap">
+                        <td className="py-2.5 px-1.5 text-center font-mono font-extrabold text-slate-200 text-[10px] sm:text-xs whitespace-nowrap">
                           {stu.bankDetails?.branchCode || '1'}
                         </td>
 
                         {/* ACCOUNT NO */}
-                        <td className="py-3.5 px-2 font-mono font-extrabold text-white tracking-wider text-sm sm:text-base whitespace-nowrap">
+                        <td className="py-2.5 px-1.5 font-mono font-extrabold text-white tracking-wider text-[10px] sm:text-xs whitespace-nowrap">
                           {stu.bankDetails?.accountNumber || 'N/A'}
                         </td>
 
                         {/* ACTIONS */}
-                        <td className="py-3.5 px-2 text-center whitespace-nowrap">
-                          <div className="flex items-center justify-center gap-1.5">
+                        <td className="py-2.5 px-1.5 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => setSelectedStudent(stu)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-slate-800 transition-colors"
+                              className="p-1 rounded text-slate-400 hover:text-blue-400 hover:bg-slate-800 transition-colors"
                               title="View Full Scholar Profile"
                             >
-                              <Eye className="w-4 h-4" />
+                              <Eye className="w-3.5 h-3.5" />
                             </button>
                             {currentRole !== 'Student' && (
                               <button
                                 onClick={() => setEditingStudent(stu)}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
+                                className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
                                 title="Edit Bank Details"
                               >
-                                <Edit2 className="w-4 h-4" />
+                                <Edit2 className="w-3.5 h-3.5" />
                               </button>
                             )}
                           </div>
@@ -618,6 +632,38 @@ export default function BlossomPaymentsPage() {
                 </tbody>
               </table>
             </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between p-3 border-t border-slate-800/80 bg-slate-900/60 gap-3">
+                <div className="text-xs text-slate-400">
+                  Showing <span className="font-bold text-slate-200">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-bold text-slate-200">{Math.min(currentPage * itemsPerPage, blossomStudents.length)}</span> of <span className="font-bold text-slate-200">{blossomStudents.length}</span> students
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs px-3"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <div className="px-2 text-xs font-semibold text-slate-300">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs px-3"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
