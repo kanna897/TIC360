@@ -61,6 +61,7 @@ export interface Student {
   currentStatus: StudentStatus;
   bankDetails?: StudentBankDetails;
   blossomApplication?: BlossomApplication;
+  isDummy?: boolean;
   createdAt: string;
   updatedAt: string;
 }

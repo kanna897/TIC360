@@ -117,8 +117,10 @@ export default function StudentsPage() {
         blossomFilter === 'all' ||
         (blossomFilter === 'blossom' && s.isBlossomTrust) ||
         (blossomFilter === 'non-blossom' && !s.isBlossomTrust);
+      
+      const isDummyVisible = s.isDummy ? blossomFilter === 'blossom' : true;
 
-      return matchesSearch && matchesBatch && matchesCourse && matchesStatus && matchesBlossom;
+      return matchesSearch && matchesBatch && matchesCourse && matchesStatus && matchesBlossom && isDummyVisible;
     });
   }, [students, searchQuery, batchFilter, courseFilter, statusFilter, blossomFilter]);
 

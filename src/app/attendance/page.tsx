@@ -79,6 +79,9 @@ export default function AttendancePage() {
   // Filter students by selected Group and Batch
   const groupStudents = useMemo(() => {
     return students.filter((s) => {
+      // Hide dummy students created via Blossom Excel import from attendance view
+      if (s.isDummy) return false;
+
       // If group is 'Group A', include students with group 'Group A', 'A', or undefined default
       const matchesGroup =
         selectedGroup === 'all' ||

@@ -540,7 +540,49 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           };
           updatedCount++;
         } else {
-          console.warn(`Student not found for Blossom update: ${row.utNumber} - ${row.fullName}`);
+          // Calculate next UT number if not specified
+          let ut = cleanUt;
+          if (!ut) {
+            const existingNums = nextStudents
+              .map((s) => {
+                const match = s.utNumber.match(/UT-\d{4}-(\d+)/);
+                return match ? parseInt(match[1], 10) : 0;
+              })
+              .filter((n) => !isNaN(n));
+            const maxNum = existingNums.length > 0 ? Math.max(...existingNums) : nextStudents.length;
+            ut = `UT-2026-${String(maxNum + 1).padStart(3, '0')}`;
+          }
+
+          const newStudent: Student = {
+            id: `STU-${Math.floor(10000 + Math.random() * 90000)}`,
+            utNumber: ut,
+            fullName: row.fullName || `Student ${ut}`,
+            nic: `${Math.floor(100000000 + Math.random() * 900000000)}V`,
+            dob: '2004-01-01',
+            gender: 'Male',
+            phone: row.phone || '0774521180',
+            email: `${ut.toLowerCase().replace(/[^a-z0-9]/g, '')}@tic360.lk`,
+            address: `${row.district || 'Jaffna'}, Sri Lanka`,
+            district: row.district || 'Jaffna',
+            emergencyContact: {
+              name: 'Parent/Guardian',
+              phone: row.phone || '0774521180',
+              relationship: 'Parent',
+            },
+            batchId: 'BATCH-2026-A',
+            batchName: 'Batch 2026',
+            courseId: 'CRS-ICT-01',
+            courseName: 'ICT & Software Engineering',
+            isBlossomTrust: true,
+            isDummy: true, // Mark as dummy so it doesn't pollute Directory and Attendance
+            blossomAmount: row.amount !== undefined ? parseAmt(row.amount) : 15000,
+            currentStatus: 'Active',
+            bankDetails,
+            createdAt: now,
+            updatedAt: now,
+          };
+          nextStudents.push(newStudent);
+          createdCount++;
         }
       });
 
@@ -551,10 +593,10 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       'Blossom Excel Import',
       'Student',
       'Batch Import',
-      `Imported ${rows.length} Blossom Trust records (${updatedCount} updated)`
+      `Imported ${rows.length} Blossom Trust records (${updatedCount} updated, ${createdCount} created)`
     );
 
-    return { updatedCount, createdCount: 0 };
+    return { updatedCount, createdCount };
   };
 
   // 2. ATTENDANCE & AUTOMATIC PAYMENT CALCULATION
