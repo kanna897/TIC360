@@ -417,7 +417,30 @@ export default function SettingsPage() {
                 onClick={() => {
                   if (!confirm('Import EXACT attendance data from Google Sheets? This will OVERWRITE current attendance.')) return;
                   
-                  const generatedSessions: any[] = seedData.sessions;
+                  const rawSessions = seedData.sessions as any[];
+                  const generatedSessions = rawSessions.map(s => {
+                     const dateParts = s.date.split('-');
+                     const displayDate = `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`;
+                     
+                     let groupStr = 'Frontend Developer';
+                     if (s.id.includes('sess_FS_')) {
+                        // The UI expects 'Group A' or 'Group B' for Full Stack
+                        // Since Excel was combined, let's just make two copies of the session or assign it 'All'
+                        // Wait, 'All' works if we modify the filter, but let's just use 'All'
+                        groupStr = 'All'; 
+                     }
+
+                     return {
+                        id: s.id,
+                        batchId: s.batchId || 'B01',
+                        group: groupStr,
+                        month: s.date.substring(0, 7),
+                        date: s.date,
+                        displayDate: displayDate,
+                        subject: 'Class Session'
+                     };
+                  });
+                  
                   const generatedMarks: Record<string, any> = {};
                   
                   // Map UT Numbers to Student IDs
