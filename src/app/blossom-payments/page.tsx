@@ -621,13 +621,22 @@ export default function BlossomPaymentsPage() {
                         </td>
 
                         {/* UT NO */}
-                        <td className="py-3 px-1.5 font-extrabold text-white font-mono text-xs tracking-wide whitespace-nowrap">
-                          {stu.utNumber}
+                        <td className="py-3 px-1.5 font-extrabold font-mono text-xs tracking-wide whitespace-nowrap">
+                          <span className={isDropout ? 'line-through text-red-400 opacity-70' : 'text-white'}>{stu.utNumber}</span>
                         </td>
 
                         {/* NAME */}
-                        <td className="py-3 px-1.5 font-bold text-slate-100 group-hover:text-blue-400 transition-colors text-xs whitespace-nowrap">
-                          {stu.fullName}
+                        <td className="py-3 px-1.5 font-bold text-xs whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className={isDropout ? 'line-through text-red-300 opacity-70' : 'text-slate-100 group-hover:text-blue-400 transition-colors'}>
+                              {stu.fullName}
+                            </span>
+                            {isDropout && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-red-500/20 border border-red-500/40 text-red-400 tracking-wider whitespace-nowrap">
+                                ✂ STOPPED
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* PHONE NO */}
@@ -646,8 +655,16 @@ export default function BlossomPaymentsPage() {
                         </td>
 
                         {/* BLOSSOM TRUST AMT */}
-                        <td className="py-3 px-1.5 font-extrabold text-indigo-400 font-mono tracking-wide text-xs whitespace-nowrap text-center">
-                          {stu.isBlossomTrust ? (stu.blossomAmount !== undefined ? `LKR ${stu.blossomAmount.toLocaleString()}` : 'LKR 15,000') : 'LKR 0'}
+                        <td className="py-3 px-1.5 font-extrabold font-mono tracking-wide text-xs whitespace-nowrap text-center">
+                          {isDropout ? (
+                            <span className="line-through text-red-400 opacity-60">
+                              {stu.blossomAmount !== undefined ? `LKR ${stu.blossomAmount.toLocaleString()}` : 'LKR 15,000'}
+                            </span>
+                          ) : (
+                            <span className="text-indigo-400">
+                              {stu.isBlossomTrust ? (stu.blossomAmount !== undefined ? `LKR ${stu.blossomAmount.toLocaleString()}` : 'LKR 15,000') : 'LKR 0'}
+                            </span>
+                          )}
                         </td>
 
                         {/* BANK */}
