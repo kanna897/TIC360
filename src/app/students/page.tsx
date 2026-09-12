@@ -34,6 +34,7 @@ import { Select } from '@/components/ui/Select';
 import { formatCurrency, formatDate, exportToCSV, exportToExcel } from '@/lib/utils';
 import { uploadToCloudinary } from '@/lib/cloudinary';
 import { SRI_LANKA_BANKS } from '@/lib/sriLankaBanks';
+import * as XLSX from 'xlsx';
 
 export default function StudentsPage() {
   const {
@@ -289,6 +290,105 @@ export default function StudentsPage() {
     exportToExcel('TIC360_Students_Register', [{ sheetName: 'Students', data: exportData }]);
   };
 
+  const handleBulkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws, { raw: false }) as Record<string, any>[];
+
+        let addedCount = 0;
+        let skippedCount = 0;
+
+        for (const row of data) {
+          // Normalize keys by converting to lowercase and stripping spaces
+          const normalizedRow: Record<string, any> = {};
+          for (const key in row) {
+            const normKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+            normalizedRow[normKey] = row[key];
+          }
+
+          // We ignore 'status' and 'action' columns as requested by the user
+          // Extract relevant fields mapping either to table headers or export headers
+          const utNumber = normalizedRow['utno'] || normalizedRow['utnumber'];
+          const fullName = normalizedRow['name'] || normalizedRow['fullname'];
+          const nic = normalizedRow['nicno'] || normalizedRow['nic'];
+          
+          if (!utNumber || !fullName || !nic) {
+            skippedCount++;
+            continue;
+          }
+
+          // Check if UT Number or NIC already exists
+          const utExists = students.some(
+            (s) => s.utNumber.trim().toLowerCase() === String(utNumber).trim().toLowerCase()
+          );
+          const nicExists = students.some(
+            (s) => s.nic.trim().toLowerCase() === String(nic).trim().toLowerCase()
+          );
+
+          if (utExists || nicExists) {
+            skippedCount++;
+            continue;
+          }
+
+          const phone = normalizedRow['phoneno'] || normalizedRow['phone'] || '';
+          const email = normalizedRow['email'] || `${String(fullName).toLowerCase().replace(/\\s+/g, '.')}@unicomtic.org`;
+          const district = normalizedRow['district'] || 'Jaffna';
+          
+          const courseNameStr = normalizedRow['course'] || 'Web Development';
+          const batchNameStr = normalizedRow['batch'] || 'BAT-02';
+          
+          const selectedCourse = courses.find(c => c.name.toLowerCase() === String(courseNameStr).toLowerCase()) || courses[0];
+          const selectedBatch = batches.find(b => b.name.toLowerCase() === String(batchNameStr).toLowerCase()) || batches[0];
+          
+          addStudent({
+            utNumber: String(utNumber),
+            fullName: String(fullName),
+            nic: String(nic),
+            dob: normalizedRow['dob'] || '2002-01-01',
+            gender: (normalizedRow['gender'] || 'Male') as Gender,
+            phone: String(phone),
+            whatsapp: String(phone),
+            email: String(email),
+            address: '',
+            district: String(district),
+            emergencyContact: {
+              name: '',
+              phone: '',
+              relationship: 'Parent',
+            },
+            batchId: selectedBatch?.id || 'BAT-02',
+            batchName: selectedBatch?.name || 'Batch 2',
+            courseId: selectedCourse?.id || 'CRS-02',
+            courseName: selectedCourse?.name || 'Web Development',
+            photoUrl: '',
+            isBlossomTrust: false,
+            currentStatus: 'Active',
+          });
+          addedCount++;
+        }
+
+        alert(`Bulk upload complete! Added: ${addedCount}, Skipped (missing/duplicates): ${skippedCount}`);
+      } catch (error) {
+        console.error('Error during bulk upload:', error);
+        alert('Failed to parse the Excel file.');
+      }
+      
+      // Clear the file input
+      if (e.target) {
+        e.target.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn">
       {/* Page Header */}
@@ -338,14 +438,23 @@ export default function StudentsPage() {
             Export CSV
           </Button>
           {currentRole !== 'Student' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => alert('Bulk upload functionality to be implemented')}
-              leftIcon={<Upload className="w-4 h-4 text-blue-400" />}
-            >
-              Bulk Upload (Excel)
-            </Button>
+            <>
+              <input
+                type="file"
+                accept=".xlsx, .xls, .csv"
+                className="hidden"
+                id="bulk-upload-excel"
+                onChange={handleBulkUpload}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => document.getElementById('bulk-upload-excel')?.click()}
+                leftIcon={<Upload className="w-4 h-4 text-blue-400" />}
+              >
+                Bulk Upload (Excel)
+              </Button>
+            </>
           )}
           {currentRole !== 'Student' && (
             <Button
