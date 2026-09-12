@@ -125,6 +125,7 @@ export interface DailyTimeLog {
   status: 'P' | 'L' | 'A';
   totalHours: number; // calculated hours
   extraHours: number; // anything beyond 7 hours
+  group?: string; // Group A or Group B
 }
 
 export type BlossomPaymentStatus = 'Eligible' | 'Not Eligible' | 'Paid' | 'Pending';

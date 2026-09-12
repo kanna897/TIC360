@@ -132,53 +132,71 @@ export const FingerprintUploadModal: React.FC<FingerprintUploadModalProps> = ({
               </div>
             </div>
 
-            <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950">
-              <div className="overflow-x-auto max-h-[300px]">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead className="sticky top-0 bg-slate-900 shadow-md">
-                    <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">UT No</th>
-                      <th className="py-3 px-3">Name</th>
-                      <th className="py-3 px-3">In Time</th>
-                      <th className="py-3 px-3">Out Time</th>
-                      <th className="py-3 px-3 text-center">Status</th>
-                      <th className="py-3 px-3 text-center">Extra Hours</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {parsedLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-900/50">
-                        <td className="py-2.5 px-3 font-mono text-slate-300">
-                          {log.utNumber}
-                        </td>
-                        <td className="py-2.5 px-3 font-medium text-white">
-                          {log.studentName}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-slate-400">
-                          {log.inTime || '-'}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-slate-400">
-                          {log.outTime || '-'}
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          {log.status === 'P' && (
-                            <Badge variant="active">Present</Badge>
-                          )}
-                          {log.status === 'L' && (
-                            <Badge variant="amber">Late</Badge>
-                          )}
-                          {log.status === 'A' && (
-                            <Badge variant="rose">Absent</Badge>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-center font-bold text-indigo-400">
-                          {log.extraHours > 0 ? `+${log.extraHours} hrs` : '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <div className="space-y-6">
+              {['Group A', 'Group B', 'Unassigned'].map((groupName) => {
+                const groupLogs = parsedLogs.filter((log) => {
+                  const g = log.group?.toLowerCase() || '';
+                  if (groupName === 'Group A') return g === 'group a' || g === 'a';
+                  if (groupName === 'Group B') return g === 'group b' || g === 'b';
+                  return g !== 'group a' && g !== 'a' && g !== 'group b' && g !== 'b';
+                });
+
+                if (groupLogs.length === 0) return null;
+
+                return (
+                  <div key={groupName} className="space-y-2">
+                    <h4 className="text-sm font-bold text-blue-400 tracking-wider border-b border-slate-800 pb-2">{groupName} ({groupLogs.length} Students)</h4>
+                    <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950">
+                      <div className="overflow-x-auto max-h-[300px]">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead className="sticky top-0 bg-slate-900 shadow-md">
+                            <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
+                              <th className="py-3 px-3">UT No</th>
+                              <th className="py-3 px-3">Name</th>
+                              <th className="py-3 px-3">In Time</th>
+                              <th className="py-3 px-3">Out Time</th>
+                              <th className="py-3 px-3 text-center">Status</th>
+                              <th className="py-3 px-3 text-center">Extra Hours</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {groupLogs.map((log) => (
+                              <tr key={log.id} className="hover:bg-slate-900/50">
+                                <td className="py-2.5 px-3 font-mono text-slate-300">
+                                  {log.utNumber}
+                                </td>
+                                <td className="py-2.5 px-3 font-medium text-white">
+                                  {log.studentName}
+                                </td>
+                                <td className="py-2.5 px-3 font-mono text-slate-400">
+                                  {log.inTime || '-'}
+                                </td>
+                                <td className="py-2.5 px-3 font-mono text-slate-400">
+                                  {log.outTime || '-'}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  {log.status === 'P' && (
+                                    <Badge variant="active">Present</Badge>
+                                  )}
+                                  {log.status === 'L' && (
+                                    <Badge variant="amber">Late</Badge>
+                                  )}
+                                  {log.status === 'A' && (
+                                    <Badge variant="rose">Absent</Badge>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-bold text-indigo-400">
+                                  {log.extraHours > 0 ? `+${log.extraHours} hrs` : '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Save Action */}

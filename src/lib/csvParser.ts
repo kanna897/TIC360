@@ -73,6 +73,7 @@ export const parseFingerprintCSV = (
       studentId: student.id,
       utNumber: student.utNumber,
       studentName: student.fullName,
+      group: student.group || 'Unassigned',
       date: sessionDate,
       inTime,
       outTime,
