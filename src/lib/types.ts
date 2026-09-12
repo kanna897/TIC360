@@ -92,7 +92,7 @@ export type AttendanceMark = 'P' | 'A' | 'L'; // P = Present (Green), A = Absent
 export interface AttendanceSession {
   id: string;
   batchId?: string;
-  group: 'Group A' | 'Group B' | 'All';
+  group: string;
   month: string; // 'YYYY-MM' e.g. '2026-04'
   date: string; // 'YYYY-MM-DD' e.g. '2026-04-01'
   displayDate: string; // '01.04.2026'

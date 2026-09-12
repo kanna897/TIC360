@@ -70,7 +70,7 @@ export default function AttendancePage() {
   const [newSessionForm, setNewSessionForm] = useState({
     subject: 'JAVASCRIPT & DOM',
     date: '2026-04-12',
-    group: 'Group A' as 'Group A' | 'Group B' | 'All',
+    group: 'Group A' as string,
   });
 
   const selectedMonthString = `${selectedYear}-${selectedMonthOnly}`; // '2026-04'
@@ -101,16 +101,23 @@ export default function AttendancePage() {
     });
   }, [students, selectedGroup, selectedBatch, searchQuery]);
 
-  // Filter sessions for the selected month and group
   const monthSessions = useMemo(() => {
     return attendanceSessions
       .filter((ses) => {
         const matchesMonth = ses.month === selectedMonthString;
+        
+        let targetGroup = 'All';
+        if (selectedGroup === 'Full Stack - Group A') targetGroup = 'Group A';
+        if (selectedGroup === 'Full Stack - Group B') targetGroup = 'Group B';
+        if (selectedGroup === 'Frontend Developer') targetGroup = 'Frontend Developer';
+
         const matchesGroup =
           selectedGroup === 'all' ||
           ses.group === 'All' ||
-          ses.group === selectedGroup ||
-          (selectedGroup === 'Group A' && ses.group === ('A' as any));
+          ses.group === targetGroup ||
+          ses.group === (selectedGroup as string) ||
+          (targetGroup === 'Group A' && ses.group === ('A' as any));
+          
         return matchesMonth && matchesGroup;
       })
       .sort((a, b) => a.date.localeCompare(b.date));
