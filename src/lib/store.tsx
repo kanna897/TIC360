@@ -121,6 +121,11 @@ interface StoreContextType {
     marks: Record<string, Record<string, AttendanceMark>>,
     monthly: MonthlyAttendance[]
   ) => void;
+  importGoogleSheetAttendance: (
+    month: string,
+    newSessions: AttendanceSession[],
+    newMarks: Record<string, Record<string, AttendanceMark>>
+  ) => void;
   processFingerprintCSV: (logs: DailyTimeLog[], sessionDate: string) => void;
 
   // Blossom Payment Actions
@@ -1097,6 +1102,77 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     setMonthlyAttendance(monthly);
   };
 
+  const importGoogleSheetAttendance = (
+    month: string,
+    newSessions: AttendanceSession[],
+    newMarks: Record<string, Record<string, AttendanceMark>>
+  ) => {
+    setAttendanceSessions(prev => {
+      // Remove old sessions for this month to prevent duplicates if uploading again
+      const filtered = prev.filter(s => !s.date.startsWith(month));
+      return [...filtered, ...newSessions];
+    });
+
+    setAttendanceMarks(prev => {
+      const updated = { ...prev };
+      // Note: We don't necessarily clear old marks because they are tied to session IDs,
+      // and we just replaced the session IDs. We just merge the new ones.
+      Object.keys(newMarks).forEach(sessionId => {
+        updated[sessionId] = { ...(updated[sessionId] || {}), ...newMarks[sessionId] };
+      });
+      return updated;
+    });
+
+    // After setting, we need to recalculate monthly totals for this month.
+    // We will do that by simulating a saveAttendanceMatrix call or just rebuilding it.
+    // However, since state updates are async, the best way is to let the effect in Attendance Matrix handle it,
+    // or just calculate it right here using the new data!
+    
+    // We can do it right here:
+    setMonthlyAttendance(prev => {
+      const year = parseInt(month.split('-')[0], 10) || 2026;
+      const filteredMonthly = prev.filter(m => m.month !== month);
+      
+      const newMonthly = students.map(stu => {
+        let pCount = 0;
+        newSessions.forEach(ses => {
+          const m = newMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
+          if (m === 'P') pCount += 1;
+        });
+        
+        const sessionCount = newSessions.length;
+        const pct = sessionCount > 0 ? Math.round((pCount / sessionCount) * 100) : 100;
+        
+        let attStatus: 'Good Attendance' | 'Low Attendance' | 'Critical Attendance' = 'Good Attendance';
+        if (pct < 75) attStatus = 'Critical Attendance';
+        else if (pct < 85) attStatus = 'Low Attendance';
+        
+        return {
+          id: `${stu.id}_${month}`,
+          studentId: stu.id,
+          utNumber: stu.utNumber,
+          studentName: stu.fullName || '',
+          batchId: stu.batchId || 'B01',
+          courseName: stu.courseName || '',
+          courseId: stu.courseId || '',
+          group: stu.group || '',
+          month: month,
+          year: year,
+          totalHeld: sessionCount,
+          totalPresent: pCount,
+          attendancePercentage: pct,
+          status: attStatus,
+          recordedBy: 'Admin',
+          updatedAt: new Date().toISOString()
+        };
+      });
+      
+      return [...filteredMonthly, ...newMonthly];
+    });
+
+    addAuditLog('Google Sheets Import', 'Attendance', month, `Imported ${newSessions.length} sessions`);
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -1138,6 +1214,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         markAllPresentForSession,
         saveAttendanceMatrix,
         bulkImportAllAttendance,
+        importGoogleSheetAttendance,
         processFingerprintCSV,
         updatePaymentStatus,
         recalculateMonthlyPayments,

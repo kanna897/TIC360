@@ -35,6 +35,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { exportToCSV, exportToExcel, formatMonthName } from '@/lib/utils';
 import { FingerprintUploadModal } from '@/components/attendance/FingerprintUploadModal';
+import { GoogleSheetsUploadModal } from '@/components/attendance/GoogleSheetsUploadModal';
 
 export default function AttendancePage() {
   const {
@@ -64,6 +65,7 @@ export default function AttendancePage() {
   const [isAddSessionModalOpen, setIsAddSessionModalOpen] = useState(false);
   const [isEditSessionModalOpen, setIsEditSessionModalOpen] = useState(false);
   const [isFingerprintModalOpen, setIsFingerprintModalOpen] = useState(false);
+  const [isGoogleSheetsModalOpen, setIsGoogleSheetsModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<AttendanceSession | null>(null);
 
   // Add Session Form
@@ -334,7 +336,16 @@ export default function AttendancePage() {
             onClick={() => setIsFingerprintModalOpen(true)}
             leftIcon={<UploadCloud className="w-4 h-4 text-blue-400" />}
           >
-            Upload Fingerprint CSV
+            Fingerprint CSV
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsGoogleSheetsModalOpen(true)}
+            leftIcon={<UploadCloud className="w-4 h-4 text-indigo-400" />}
+          >
+            Import Google Sheets
           </Button>
 
           <Button
@@ -1031,6 +1042,12 @@ export default function AttendancePage() {
       <FingerprintUploadModal
         isOpen={isFingerprintModalOpen}
         onClose={() => setIsFingerprintModalOpen(false)}
+      />
+
+      {/* Google Sheets Upload Modal */}
+      <GoogleSheetsUploadModal
+        isOpen={isGoogleSheetsModalOpen}
+        onClose={() => setIsGoogleSheetsModalOpen(false)}
       />
     </div>
   );
