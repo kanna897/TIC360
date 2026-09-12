@@ -459,6 +459,26 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           : s
       )
     );
+
+    // If student is being marked as Dropout, auto-stop all future unpaid Blossom payments
+    if (updated.currentStatus === 'Dropout') {
+      const today = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
+      setBlossomPayments((prev) =>
+        prev.map((p) => {
+          if (p.studentId === id && p.month >= today && p.status !== 'Paid') {
+            return {
+              ...p,
+              isEligible: false,
+              amount: 0,
+              status: 'Not Eligible' as const,
+              ineligibilityReason: 'Disbursement stopped due to Dropout',
+            };
+          }
+          return p;
+        })
+      );
+    }
+
     addAuditLog('Student Updated', 'Student', id, `Updated profile data for ${id}`);
   };
 
