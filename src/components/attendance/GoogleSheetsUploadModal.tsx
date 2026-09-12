@@ -21,6 +21,9 @@ export const GoogleSheetsUploadModal: React.FC<GoogleSheetsUploadModalProps> = (
   const [targetMonth, setTargetMonth] = useState(defaultMonth);
   const [courseFilter, setCourseFilter] = useState<'All' | 'Full Stack' | 'Frontend'>('All');
   
+  const [sheetNames, setSheetNames] = useState<string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>('');
+  
   const [isParsing, setIsParsing] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,10 +34,29 @@ export const GoogleSheetsUploadModal: React.FC<GoogleSheetsUploadModalProps> = (
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setCsvFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setCsvFile(file);
       setError(null);
       setParsedSessions([]);
       setParsedMarks({});
+      setSheetNames([]);
+      setSelectedSheet('');
+
+      // Pre-read workbook to get SheetNames
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const data = evt.target?.result;
+          const workbook = XLSX.read(data, { type: 'binary' });
+          setSheetNames(workbook.SheetNames);
+          if (workbook.SheetNames.length > 0) {
+            setSelectedSheet(workbook.SheetNames[0]);
+          }
+        } catch (err) {
+          console.error("Failed to read SheetNames", err);
+        }
+      };
+      reader.readAsBinaryString(file);
     }
   };
 
@@ -49,7 +71,7 @@ export const GoogleSheetsUploadModal: React.FC<GoogleSheetsUploadModalProps> = (
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
         
-        const sheetName = workbook.SheetNames[0];
+        const sheetName = selectedSheet || workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const raw = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
 
@@ -231,6 +253,25 @@ export const GoogleSheetsUploadModal: React.FC<GoogleSheetsUploadModalProps> = (
               />
             </div>
           </div>
+          
+          {sheetNames.length > 0 && (
+            <div className="md:col-span-3 pt-2 border-t border-slate-800">
+              <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
+                Select Excel Sheet (Month) *
+              </label>
+              <select
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
+                value={selectedSheet}
+                onChange={(e) => setSelectedSheet(e.target.value)}
+              >
+                {sheetNames.map((name, idx) => (
+                  <option key={idx} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {error && (
