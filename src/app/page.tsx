@@ -62,7 +62,8 @@ export default function DashboardPage() {
   const activeStudents = students.filter((s) => s.currentStatus === 'Active').length;
   const completedStudents = students.filter((s) => s.currentStatus === 'Completed').length;
   const dropoutStudents = students.filter((s) => s.currentStatus === 'Dropout').length;
-  const blossomCount = students.filter((s) => s.isBlossomTrust).length;
+  const blossomDropoutCount = students.filter((s) => s.isBlossomTrust && s.currentStatus === 'Dropout').length;
+  const blossomCount = students.filter((s) => s.isBlossomTrust && s.currentStatus !== 'Dropout').length;
   const nonBlossomCount = students.filter((s) => !s.isBlossomTrust).length;
   const frontEndCount = students.filter(s => s.courseId === 'Frontend Developer' || s.courseName === 'Frontend Developer').length;
   const fullStackCount = totalStudents - frontEndCount;
@@ -452,13 +453,14 @@ export default function DashboardPage() {
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-rose-500/40 transition-all flex justify-center">
             <ThreeDPieChart
               title="Student Type Split"
-              subtitle="Blossom vs Non-Blossom"
+              subtitle="Blossom vs Non-Blossom vs Dropout"
               width={280}
               height={200}
               depth={26}
               data={[
                 { name: 'Blossom Trust', value: blossomCount || 0, color: '#f43f5e' },
                 { name: 'Non-Blossom', value: nonBlossomCount || 0, color: '#6366f1' },
+                { name: 'Blossom Dropout', value: blossomDropoutCount || 0, color: '#f97316' },
               ]}
             />
           </div>
