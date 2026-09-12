@@ -301,27 +301,56 @@ export default function StudentsPage() {
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws, { raw: false }) as Record<string, any>[];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
 
         let addedCount = 0;
         let skippedCount = 0;
+        let currentGroup: 'Group A' | 'Group B' | undefined = undefined;
 
-        for (const row of data) {
-          // Normalize keys by converting to lowercase and stripping spaces
+        // Skip until we find the actual headers (like UT NO, NAME, etc)
+        // or a group header (GROUP A, GROUP B)
+        let headers: string[] = [];
+
+        for (let i = 0; i < data.length; i++) {
+          const row = data[i];
+          if (!row || row.length === 0) continue;
+
+          // Check if this row is a Group Header
+          const firstCell = String(row[0] || '').trim().toUpperCase();
+          const secondCell = String(row[1] || '').trim().toUpperCase();
+          
+          if (firstCell.includes('GROUP A') || secondCell.includes('GROUP A')) {
+            currentGroup = 'Group A';
+            continue;
+          } else if (firstCell.includes('GROUP B') || secondCell.includes('GROUP B')) {
+            currentGroup = 'Group B';
+            continue;
+          }
+
+          // Detect column headers
+          if (row.some(cell => String(cell).toUpperCase().includes('UT NO') || String(cell).toUpperCase().includes('UT NUMBER'))) {
+            headers = row.map(cell => String(cell || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+            continue; // Skip the header row itself
+          }
+
+          if (headers.length === 0) continue; // Haven't found headers yet
+
+          // Map row data to normalized object based on found headers
           const normalizedRow: Record<string, any> = {};
-          for (const key in row) {
-            const normKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-            normalizedRow[normKey] = row[key];
+          for (let j = 0; j < headers.length; j++) {
+            if (headers[j]) {
+              normalizedRow[headers[j]] = row[j];
+            }
           }
 
           // We ignore 'status' and 'action' columns as requested by the user
           // Extract relevant fields mapping either to table headers or export headers
           const utNumber = normalizedRow['utno'] || normalizedRow['utnumber'];
-          const fullName = normalizedRow['name'] || normalizedRow['fullname'];
+          const fullName = normalizedRow['name'] || normalizedRow['fullname'] || normalizedRow['studentsname'];
           const nic = normalizedRow['nicno'] || normalizedRow['nic'];
           
-          if (!utNumber || !fullName || !nic) {
-            skippedCount++;
+          if (!utNumber || !fullName || !nic || String(utNumber).trim() === '') {
+            if (row.some(cell => cell)) skippedCount++; // only count if row wasn't entirely empty
             continue;
           }
 
@@ -356,6 +385,7 @@ export default function StudentsPage() {
               batchName: selectedBatch?.name || existingStudent.batchName,
               courseId: selectedCourse?.id || existingStudent.courseId,
               courseName: selectedCourse?.name || existingStudent.courseName,
+              group: currentGroup || existingStudent.group, // update group if found
               // We do NOT overwrite isBlossomTrust or bankDetails so Blossom Trust data remains safe!
             });
             addedCount++;
@@ -383,6 +413,7 @@ export default function StudentsPage() {
               courseName: selectedCourse?.name || 'Web Development',
               photoUrl: '',
               isBlossomTrust: false,
+              group: currentGroup,
               currentStatus: 'Active',
             });
             addedCount++;
