@@ -325,19 +325,6 @@ export default function StudentsPage() {
             continue;
           }
 
-          // Check if UT Number or NIC already exists
-          const utExists = students.some(
-            (s) => s.utNumber.trim().toLowerCase() === String(utNumber).trim().toLowerCase()
-          );
-          const nicExists = students.some(
-            (s) => s.nic.trim().toLowerCase() === String(nic).trim().toLowerCase()
-          );
-
-          if (utExists || nicExists) {
-            skippedCount++;
-            continue;
-          }
-
           const phone = normalizedRow['phoneno'] || normalizedRow['phone'] || '';
           const email = normalizedRow['email'] || `${String(fullName).toLowerCase().replace(/\\s+/g, '.')}@unicomtic.org`;
           const district = normalizedRow['district'] || 'Jaffna';
@@ -347,35 +334,62 @@ export default function StudentsPage() {
           
           const selectedCourse = courses.find(c => c.name.toLowerCase() === String(courseNameStr).toLowerCase()) || courses[0];
           const selectedBatch = batches.find(b => b.name.toLowerCase() === String(batchNameStr).toLowerCase()) || batches[0];
-          
-          addStudent({
-            utNumber: String(utNumber),
-            fullName: String(fullName),
-            nic: String(nic),
-            dob: normalizedRow['dob'] || '2002-01-01',
-            gender: (normalizedRow['gender'] || 'Male') as Gender,
-            phone: String(phone),
-            whatsapp: String(phone),
-            email: String(email),
-            address: '',
-            district: String(district),
-            emergencyContact: {
-              name: '',
-              phone: '',
-              relationship: 'Parent',
-            },
-            batchId: selectedBatch?.id || 'BAT-02',
-            batchName: selectedBatch?.name || 'Batch 2',
-            courseId: selectedCourse?.id || 'CRS-02',
-            courseName: selectedCourse?.name || 'Web Development',
-            photoUrl: '',
-            isBlossomTrust: false,
-            currentStatus: 'Active',
-          });
-          addedCount++;
+
+          // Check if UT Number or NIC already exists
+          const existingStudent = students.find(
+            (s) => s.utNumber.trim().toLowerCase() === String(utNumber).trim().toLowerCase() ||
+                   s.nic.trim().toLowerCase() === String(nic).trim().toLowerCase()
+          );
+
+          if (existingStudent) {
+            // Upsert (Update) existing student
+            updateStudent(existingStudent.id, {
+              fullName: String(fullName),
+              nic: String(nic),
+              dob: normalizedRow['dob'] || existingStudent.dob,
+              gender: (normalizedRow['gender'] || existingStudent.gender) as Gender,
+              phone: String(phone) || existingStudent.phone,
+              whatsapp: String(phone) || existingStudent.whatsapp,
+              email: String(email) || existingStudent.email,
+              district: String(district) || existingStudent.district,
+              batchId: selectedBatch?.id || existingStudent.batchId,
+              batchName: selectedBatch?.name || existingStudent.batchName,
+              courseId: selectedCourse?.id || existingStudent.courseId,
+              courseName: selectedCourse?.name || existingStudent.courseName,
+              // We do NOT overwrite isBlossomTrust or bankDetails so Blossom Trust data remains safe!
+            });
+            addedCount++;
+          } else {
+            // Insert new student
+            addStudent({
+              utNumber: String(utNumber),
+              fullName: String(fullName),
+              nic: String(nic),
+              dob: normalizedRow['dob'] || '2002-01-01',
+              gender: (normalizedRow['gender'] || 'Male') as Gender,
+              phone: String(phone),
+              whatsapp: String(phone),
+              email: String(email),
+              address: '',
+              district: String(district),
+              emergencyContact: {
+                name: '',
+                phone: '',
+                relationship: 'Parent',
+              },
+              batchId: selectedBatch?.id || 'BAT-02',
+              batchName: selectedBatch?.name || 'Batch 2',
+              courseId: selectedCourse?.id || 'CRS-02',
+              courseName: selectedCourse?.name || 'Web Development',
+              photoUrl: '',
+              isBlossomTrust: false,
+              currentStatus: 'Active',
+            });
+            addedCount++;
+          }
         }
 
-        alert(`Bulk upload complete! Added: ${addedCount}, Skipped (missing/duplicates): ${skippedCount}`);
+        alert(`Bulk upload complete! Processed (Added/Updated): ${addedCount}, Skipped (Invalid data): ${skippedCount}`);
       } catch (error) {
         console.error('Error during bulk upload:', error);
         alert('Failed to parse the Excel file.');
