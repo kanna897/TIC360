@@ -660,19 +660,26 @@ export default function AttendancePage() {
                       </td>
 
                       {/* UT NO */}
-                      <td className="py-2 px-3 font-black text-sm text-cyan-300 font-mono border-r border-slate-800 whitespace-nowrap sticky left-10 bg-slate-950 group-hover:bg-slate-900 z-10 tracking-wide">
+                      <td className={`py-2 px-3 font-black text-sm font-mono border-r border-slate-800 whitespace-nowrap sticky left-10 bg-slate-950 group-hover:bg-slate-900 z-10 tracking-wide ${stu.currentStatus === 'Dropout' ? 'text-rose-500 line-through decoration-rose-500/50' : 'text-cyan-300'}`}>
                         {stu.utNumber}
                       </td>
 
                       {/* STUDENT'S NAME */}
-                      <td className="py-2 px-4 whitespace-nowrap font-extrabold text-sm text-white group-hover:text-emerald-300 transition-colors border-r border-slate-800 sticky left-36 bg-slate-950 group-hover:bg-slate-900 z-10 shadow-lg">
+                      <td className={`py-2 px-4 whitespace-nowrap font-extrabold text-sm transition-colors border-r border-slate-800 sticky left-36 bg-slate-950 group-hover:bg-slate-900 z-10 shadow-lg ${stu.currentStatus === 'Dropout' ? 'text-rose-400 group-hover:text-rose-300' : 'text-white group-hover:text-emerald-300'}`}>
                         <div className="flex items-center justify-between gap-2">
-                          <span>{stu.fullName}</span>
-                          {stu.isBlossomTrust && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-extrabold">
-                              🌸
-                            </span>
-                          )}
+                          <span className={stu.currentStatus === 'Dropout' ? 'line-through decoration-rose-500/50' : ''}>{stu.fullName}</span>
+                          <div className="flex gap-1 items-center">
+                            {stu.currentStatus === 'Dropout' && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-400 border border-rose-500/30 font-extrabold">
+                                DROPOUT
+                              </span>
+                            )}
+                            {stu.isBlossomTrust && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-extrabold">
+                                🌸
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
 
