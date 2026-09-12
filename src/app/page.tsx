@@ -64,6 +64,8 @@ export default function DashboardPage() {
   const dropoutStudents = students.filter((s) => s.currentStatus === 'Dropout').length;
   const blossomCount = students.filter((s) => s.isBlossomTrust).length;
   const nonBlossomCount = students.filter((s) => !s.isBlossomTrust).length;
+  const fullStackCount = students.filter(s => s.courseId === 'Full Stack Developer' || s.courseName === 'Full Stack Developer').length;
+  const frontEndCount = students.filter(s => s.courseId === 'Frontend Developer' || s.courseName === 'Frontend Developer').length;
 
   // Monthly Attendance KPI
   const latestMonth = '2026-08';
@@ -392,8 +394,8 @@ export default function DashboardPage() {
               height={200}
               depth={26}
               data={[
-                { name: 'Full Stack', value: Math.round(totalStudents * 0.65) || 0, color: '#8b5cf6' },
-                { name: 'Front End', value: Math.round(totalStudents * 0.35) || 0, color: '#06b6d4' },
+                { name: 'Full Stack', value: fullStackCount || 0, color: '#8b5cf6' },
+                { name: 'Front End', value: frontEndCount || 0, color: '#06b6d4' },
               ]}
             />
           </div>
