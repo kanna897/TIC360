@@ -116,6 +116,11 @@ interface StoreContextType {
     sessions: AttendanceSession[],
     marks: Record<string, Record<string, AttendanceMark>>
   ) => void;
+  bulkImportAllAttendance: (
+    sessions: AttendanceSession[],
+    marks: Record<string, Record<string, AttendanceMark>>,
+    monthly: MonthlyAttendance[]
+  ) => void;
   processFingerprintCSV: (logs: DailyTimeLog[], sessionDate: string) => void;
 
   // Blossom Payment Actions
@@ -872,7 +877,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
         const pct = Math.round((presentCount / sessionCount) * 100);
         return {
+          id: `${stu.id}_${month}`,
           studentId: stu.id,
+          utNumber: stu.utNumber,
+          studentName: stu.fullName,
+          courseName: stu.courseName,
           batchId: stu.batchId,
           year,
           month,
@@ -1078,6 +1087,16 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     addAuditLog('System Reset', 'Database', 'All', 'Restored system database to initial factory defaults');
   };
 
+  const bulkImportAllAttendance = (
+    sessions: AttendanceSession[],
+    marks: Record<string, Record<string, AttendanceMark>>,
+    monthly: MonthlyAttendance[]
+  ) => {
+    setAttendanceSessions(sessions);
+    setAttendanceMarks(marks);
+    setMonthlyAttendance(monthly);
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -1118,6 +1137,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         batchSetDailyMarks,
         markAllPresentForSession,
         saveAttendanceMatrix,
+        bulkImportAllAttendance,
         processFingerprintCSV,
         updatePaymentStatus,
         recalculateMonthlyPayments,

@@ -61,7 +61,7 @@ export default function SettingsPage() {
     outcomes,
     auditLogs,
     resetToDefaults,
-    saveAttendanceMatrix,
+    bulkImportAllAttendance,
     currentRole,
   } = useStore();
 
@@ -438,7 +438,47 @@ export default function SettingsPage() {
                     });
                   });
                   
-                  saveAttendanceMatrix('all', 'all', generatedSessions, generatedMarks);
+                  // Calculate Monthly Attendance
+                  const monthlyMap: Record<string, {total: number, present: number}> = {};
+                  generatedSessions.forEach(session => {
+                    const monthKey = session.date.substring(0, 7);
+                    const marksForSession = generatedMarks[session.id] || {};
+                    Object.keys(marksForSession).forEach(studentId => {
+                        const mKey = `${studentId}_${monthKey}`;
+                        if (!monthlyMap[mKey]) {
+                           monthlyMap[mKey] = { total: 0, present: 0 };
+                        }
+                        monthlyMap[mKey].total += 1;
+                        if (marksForSession[studentId] === 'P') {
+                           monthlyMap[mKey].present += 1;
+                        }
+                    });
+                  });
+
+                  const newMonthlyList: any[] = [];
+                  students.forEach(stu => {
+                    const monthList = ['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'];
+                    monthList.forEach(month => {
+                       const mKey = `${stu.id}_${month}`;
+                       if (monthlyMap[mKey]) {
+                          const pct = Math.round((monthlyMap[mKey].present / monthlyMap[mKey].total) * 100);
+                          newMonthlyList.push({
+                            id: mKey,
+                            studentId: stu.id,
+                            utNumber: stu.utNumber,
+                            studentName: stu.fullName,
+                            courseName: stu.courseName,
+                            batchId: stu.batchId,
+                            year: parseInt(month.split('-')[0]),
+                            month: month,
+                            attendancePercentage: pct,
+                            status: pct >= 80 ? 'Good' : pct >= 50 ? 'Average' : 'Low'
+                          });
+                       }
+                    });
+                  });
+                  
+                  bulkImportAllAttendance(generatedSessions, generatedMarks, newMonthlyList);
                   alert('Original Google Sheets Attendance Imported Successfully!');
                 }}
                 leftIcon={<Clock className="w-4 h-4" />}
