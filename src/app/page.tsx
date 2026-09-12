@@ -254,14 +254,20 @@ export default function DashboardPage() {
 
         {/* Blossom Students */}
         <Card className="p-4 border-amber-500/20">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase">
-            <span>Blossom Scholars</span>
-            <HeartHandshake className="w-4 h-4 text-amber-400" />
+          {/* Header row: Label + Total */}
+          <div className="flex items-center justify-between text-xs font-bold uppercase">
+            <span className="text-slate-400">Blossom Scholars</span>
+            <span className="text-amber-300 font-extrabold text-sm bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">{totalBlossomCount}</span>
           </div>
-          <p className="text-2xl font-extrabold text-amber-400 mt-2">{totalBlossomCount}</p>
-          <p className="text-[11px] text-slate-400 mt-1">
-            {blossomCount} Active · {blossomDropoutCount > 0 ? <span className="text-red-400">{blossomDropoutCount} Dropped</span> : null}
-          </p>
+          {/* Center: Active count big */}
+          <p className="text-3xl font-extrabold text-amber-400 mt-2 text-center">{blossomCount}</p>
+          <p className="text-[10px] text-slate-500 text-center uppercase tracking-widest">Active</p>
+          {/* Bottom: Dropout */}
+          {blossomDropoutCount > 0 && (
+            <p className="text-[11px] text-red-400 font-bold text-center mt-1">
+              🔴 {blossomDropoutCount} Dropout
+            </p>
+          )}
         </Card>
 
         {/* Non-Blossom */}
