@@ -48,6 +48,8 @@ export default function BlossomPaymentsPage() {
     bulkImportBlossomStudents,
     settings,
     currentRole,
+    attendanceSessions,
+    attendanceMarks,
   } = useStore();
 
   // Active Tab: 'details' (Blossom Trust Student Details Table) | 'monthly' (Monthly Disbursement Ledger)
@@ -582,10 +584,36 @@ export default function BlossomPaymentsPage() {
                       </td>
                     </tr>
                   ) : (
-                    paginatedBlossomStudents.map((stu, index) => (
+                    paginatedBlossomStudents.map((stu, index) => {
+                      const isDropout = stu.currentStatus === 'Dropout';
+
+                      // Live attendance calculation (same logic as Student Directory)
+                      const isFrontend = stu.courseName === 'Frontend Developer' || stu.courseId === 'Frontend Developer';
+                      const mySessions = attendanceSessions.filter(ses =>
+                        ses.group === 'All' ||
+                        (!isFrontend && (ses.group === 'Group A' || ses.group === 'Group B') && (ses.group === stu.group || (ses.group === 'Group A' && stu.group === 'A') || (ses.group === 'Group B' && stu.group === 'B'))) ||
+                        (isFrontend && ses.group === 'Frontend Developer')
+                      );
+                      let presentCount = 0;
+                      const totalCount = mySessions.length;
+                      mySessions.forEach(ses => {
+                        const mark = attendanceMarks[ses.id]?.[stu.id];
+                        if (mark === 'P' || mark === 'L' || !mark) presentCount++;
+                      });
+                      const livePercentage = totalCount > 0 ? (presentCount / totalCount) * 100 : 100;
+                      const isLowAttendance = !isDropout && livePercentage < settings.attendanceGoodThreshold;
+
+                      let rowClass = "hover:bg-slate-900/80 transition-colors group border-b border-slate-800/60";
+                      if (isDropout) {
+                        rowClass = "bg-red-950/40 hover:bg-red-900/40 border-b border-red-900/50 transition-colors group";
+                      } else if (isLowAttendance) {
+                        rowClass = "bg-amber-950/20 hover:bg-amber-900/30 border-b border-amber-900/50 transition-colors group";
+                      }
+
+                      return (
                       <tr
                         key={stu.id}
-                        className="hover:bg-slate-900/80 transition-colors group border-b border-slate-800/60"
+                        className={rowClass}
                       >
                         {/* NO */}
                         <td className="py-3 px-1.5 text-center font-bold text-slate-300 text-xs">
@@ -664,7 +692,8 @@ export default function BlossomPaymentsPage() {
                           </div>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>
