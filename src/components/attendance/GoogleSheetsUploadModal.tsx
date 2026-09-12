@@ -42,7 +42,7 @@ export const GoogleSheetsUploadModal: React.FC<GoogleSheetsUploadModalProps> = (
     reader.onload = (e) => {
       try {
         const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
+        const workbook = XLSX.read(data, { type: 'binary', raw: true });
         
         const newParsedData: Record<string, { sessions: AttendanceSession[], marks: Record<string, Record<string, AttendanceMark>> }> = {};
         
