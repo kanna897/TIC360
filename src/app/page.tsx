@@ -64,6 +64,7 @@ export default function DashboardPage() {
   const dropoutStudents = students.filter((s) => s.currentStatus === 'Dropout').length;
   const blossomDropoutCount = students.filter((s) => s.isBlossomTrust && s.currentStatus === 'Dropout').length;
   const blossomCount = students.filter((s) => s.isBlossomTrust && s.currentStatus !== 'Dropout').length;
+  const totalBlossomCount = students.filter((s) => s.isBlossomTrust).length; // All Blossom (including dropouts)
   const nonBlossomCount = students.filter((s) => !s.isBlossomTrust).length;
   const frontEndCount = students.filter(s => s.courseId === 'Frontend Developer' || s.courseName === 'Frontend Developer').length;
   const fullStackCount = totalStudents - frontEndCount;
@@ -257,9 +258,9 @@ export default function DashboardPage() {
             <span>Blossom Scholars</span>
             <HeartHandshake className="w-4 h-4 text-amber-400" />
           </div>
-          <p className="text-2xl font-extrabold text-amber-400 mt-2">{blossomCount}</p>
+          <p className="text-2xl font-extrabold text-amber-400 mt-2">{totalBlossomCount}</p>
           <p className="text-[11px] text-slate-400 mt-1">
-            {Math.round((blossomCount / (totalStudents || 1)) * 100)}% of total students
+            {blossomCount} Active · {blossomDropoutCount > 0 ? <span className="text-red-400">{blossomDropoutCount} Dropped</span> : null}
           </p>
         </Card>
 
