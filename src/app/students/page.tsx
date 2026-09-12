@@ -1101,7 +1101,11 @@ export default function StudentsPage() {
               label="Course Allocation (1 Course Per Student) *"
               value={formData.courseId}
               onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
-              options={courses.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` }))}
+              options={[
+                { value: '', label: 'Select a Course' },
+                { value: 'Full Stack Developer', label: 'Full Stack Developer' },
+                { value: 'Frontend Developer', label: 'Frontend Developer' }
+              ]}
             />
             <Select
               label="Assigned Batch *"
@@ -1359,14 +1363,17 @@ export default function StudentsPage() {
                 label="Course Allocation"
                 value={editingStudent.courseId}
                 onChange={(e) => {
-                  const c = courses.find((crs) => crs.id === e.target.value);
                   setEditingStudent({
                     ...editingStudent,
                     courseId: e.target.value,
-                    courseName: c?.name || editingStudent.courseName,
+                    courseName: e.target.value,
                   });
                 }}
-                options={courses.map((c) => ({ value: c.id, label: c.name }))}
+                options={[
+                  { value: '', label: 'Select a Course' },
+                  { value: 'Full Stack Developer', label: 'Full Stack Developer' },
+                  { value: 'Frontend Developer', label: 'Frontend Developer' }
+                ]}
               />
               <Select
                 label="Status"
