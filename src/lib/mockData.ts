@@ -44,10 +44,10 @@ export const initialStudentOutcomes: StudentOutcome[] = [];
 export const initialAuditLogs: AuditLog[] = [];
 
 export const initialSystemSettings: SystemSettings = {
-  attendanceGoodThreshold: 80,
+  attendanceGoodThreshold: 75,
   attendanceLowThreshold: 60,
   blossomMonthlyMax: 15000,
-  paymentEligibilityAttendanceThreshold: 80,
+  paymentEligibilityAttendanceThreshold: 75,
   courses: initialCourses,
   batches: initialBatches,
   dropoutReasons: [
