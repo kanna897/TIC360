@@ -113,10 +113,26 @@ export default function BlossomPaymentsPage() {
     return blossomStudents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   }, [blossomStudents, currentPage]);
 
-  // Payments for this month
+  // Payments for this month, dynamically synced with live attendance
   const currentMonthPayments = useMemo(() => {
-    return blossomPayments.filter((p) => p.month === selectedMonthString);
-  }, [blossomPayments, selectedMonthString]);
+    return blossomPayments
+      .filter((p) => p.month === selectedMonthString)
+      .map(p => {
+         const liveAtt = monthlyAttendance.find(m => m.studentId === p.studentId && m.month === selectedMonthString);
+         const attPct = liveAtt ? liveAtt.attendancePercentage : 0;
+         const isEligible = attPct >= settings.paymentEligibilityAttendanceThreshold;
+         let newStatus = p.status;
+         if (!isEligible && p.status !== 'Paid') newStatus = 'Not Eligible';
+         if (isEligible && p.status === 'Not Eligible') newStatus = 'Eligible';
+         
+         return {
+            ...p,
+            attendancePercentage: attPct,
+            isEligible,
+            status: newStatus
+         };
+      });
+  }, [blossomPayments, selectedMonthString, monthlyAttendance, settings]);
 
   // Filtered monthly payments list
   const filteredPayments = useMemo(() => {
