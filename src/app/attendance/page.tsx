@@ -366,15 +366,6 @@ export default function AttendancePage() {
           >
             <Users className="w-4 h-4" />
             <span>🅰️ GROUP &quot;A&quot; Students Attendance Details</span>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full font-extrabold ${
-                selectedGroup === 'Group A'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-slate-800 text-slate-300'
-              }`}
-            >
-              {students.filter((s) => !s.group || s.group === 'Group A' || s.group === 'A').length}
-            </span>
           </button>
 
           {/* Tab 2: GROUP "B" */}
@@ -388,15 +379,6 @@ export default function AttendancePage() {
           >
             <Users className="w-4 h-4" />
             <span>🅱️ GROUP &quot;B&quot; Students Attendance Details</span>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full font-extrabold ${
-                selectedGroup === 'Group B'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-slate-800 text-slate-300'
-              }`}
-            >
-              {students.filter((s) => s.group === 'Group B' || s.group === 'B').length}
-            </span>
           </button>
 
 
