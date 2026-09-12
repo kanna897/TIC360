@@ -60,6 +60,7 @@ export default function SettingsPage() {
     outcomes,
     auditLogs,
     resetToDefaults,
+    saveAttendanceMatrix,
     currentRole,
   } = useStore();
 
@@ -408,6 +409,75 @@ export default function SettingsPage() {
                 className="w-full"
               >
                 Reset to Seed Dataset
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!confirm('Auto-generate 6 months of realistic attendance data for all students? This will OVERWRITE current attendance.')) return;
+                  
+                  const months = ['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'];
+                  const generatedSessions: any[] = [];
+                  const generatedMarks: Record<string, any> = {};
+                  
+                  months.forEach(month => {
+                    const days = [1, 5, 10, 15, 20, 25]; // 6 sessions per month per course
+                    ['Full Stack Developer', 'Frontend Developer'].forEach(courseName => {
+                      days.forEach(day => {
+                        const dateStr = `${month}-${day.toString().padStart(2, '0')}`;
+                        const isFS = courseName === 'Full Stack Developer';
+                        // Group A session
+                        if (isFS) {
+                          const sidA = `sess_${dateStr}_A`;
+                          generatedSessions.push({ id: sidA, date: dateStr, courseId: courseName, batchId: 'B01', type: 'Lab', instructor: 'Admin', topics: 'Practical', group: 'Group A', status: 'Completed', notes: '' });
+                          generatedMarks[sidA] = {};
+                        }
+                        // Group B session
+                        if (isFS) {
+                          const sidB = `sess_${dateStr}_B`;
+                          generatedSessions.push({ id: sidB, date: dateStr, courseId: courseName, batchId: 'B01', type: 'Lab', instructor: 'Admin', topics: 'Practical', group: 'Group B', status: 'Completed', notes: '' });
+                          generatedMarks[sidB] = {};
+                        }
+                        // Frontend session (no groups)
+                        if (!isFS) {
+                          const sidF = `sess_${dateStr}_Front`;
+                          generatedSessions.push({ id: sidF, date: dateStr, courseId: courseName, batchId: 'B02', type: 'Lab', instructor: 'Admin', topics: 'Practical', group: '', status: 'Completed', notes: '' });
+                          generatedMarks[sidF] = {};
+                        }
+                      });
+                    });
+                  });
+                  
+                  // Assign marks
+                  students.forEach(student => {
+                    const isFront = student.courseName === 'Frontend Developer' || student.courseId === 'Frontend Developer';
+                    generatedSessions.forEach(session => {
+                      // Match student to session
+                      if (isFront && session.courseId !== 'Frontend Developer') return;
+                      if (!isFront && session.courseId === 'Frontend Developer') return;
+                      if (!isFront && session.group && student.group && !session.group.includes(student.group)) return;
+                      
+                      // Calculate mark
+                      let mark = 'P';
+                      if (student.currentStatus === 'Dropout') {
+                         mark = Math.random() > 0.8 ? 'A' : 'P'; // Give them mostly A to trigger Low Attendance threshold
+                         if (Math.random() > 0.5) mark = 'A'; // Make dropouts have very low attendance
+                      } else {
+                         const r = Math.random();
+                         if (r > 0.95) mark = 'A';
+                         else if (r > 0.90) mark = 'L';
+                      }
+                      generatedMarks[session.id][student.id] = mark;
+                    });
+                  });
+                  
+                  saveAttendanceMatrix('all', 'all', generatedSessions, generatedMarks);
+                  alert('Attendance generated successfully!');
+                }}
+                leftIcon={<Clock className="w-4 h-4" />}
+                className="w-full mt-2 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10"
+              >
+                Auto-Generate Past 6 Months Attendance
               </Button>
             </CardContent>
           </Card>
