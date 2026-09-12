@@ -339,6 +339,16 @@ export default function StudentsPage() {
           </Button>
           {currentRole !== 'Student' && (
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => alert('Bulk upload functionality to be implemented')}
+              leftIcon={<Upload className="w-4 h-4 text-blue-400" />}
+            >
+              Bulk Upload (Excel)
+            </Button>
+          )}
+          {currentRole !== 'Student' && (
+            <Button
               variant="primary"
               size="sm"
               onClick={() => setIsAddModalOpen(true)}
@@ -421,7 +431,6 @@ export default function StudentsPage() {
                   <th className="py-3.5 px-2.5 text-slate-200 whitespace-nowrap">PHONE NO</th>
                   <th className="py-3.5 px-3 text-slate-200 whitespace-nowrap">EMAIL</th>
                   <th className="py-3.5 px-2.5 text-slate-200 whitespace-nowrap">DISTRICT</th>
-                  <th className="py-3.5 px-3 text-slate-100 whitespace-nowrap">COURSE</th>
 
                   <th className="py-3.5 px-2.5 text-center text-slate-200 whitespace-nowrap">STATUS</th>
                   <th className="py-3.5 px-2 text-center text-slate-400 whitespace-nowrap">ACTION</th>
@@ -431,7 +440,7 @@ export default function StudentsPage() {
                 {filteredStudents.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={9}
                       className="py-14 text-center text-base text-slate-400"
                     >
                       No student records found matching your filters.
@@ -476,11 +485,6 @@ export default function StudentsPage() {
                       {/* DISTRICT */}
                       <td className="py-3.5 px-2.5 text-slate-300 font-medium text-sm sm:text-base whitespace-nowrap">
                         {stu.district}
-                      </td>
-
-                      {/* COURSE */}
-                      <td className="py-3.5 px-3 font-semibold text-slate-200 text-sm sm:text-base whitespace-nowrap">
-                        {stu.courseName}
                       </td>
 
 

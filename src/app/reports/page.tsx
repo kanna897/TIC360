@@ -363,31 +363,21 @@ export default function ReportsPage() {
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3 py-4 border-b border-slate-800 text-xs">
               <div>
                 <span className="text-slate-400 uppercase font-bold text-[10px]">Total Trainees</span>
-                <p className="text-lg font-extrabold text-white mt-0.5">{students.length}</p>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-bold text-[10px]">Active</span>
-                <p className="text-lg font-extrabold text-emerald-400 mt-0.5">
-                  {students.filter((s) => s.currentStatus === 'Active').length}
-                </p>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-bold text-[10px]">Graduated</span>
-                <p className="text-lg font-extrabold text-purple-400 mt-0.5">{completions.length}</p>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-bold text-[10px]">Dropouts</span>
-                <p className="text-lg font-extrabold text-rose-400 mt-0.5">{dropouts.length}</p>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-bold text-[10px]">Blossom Paid</span>
-                <p className="text-lg font-extrabold text-emerald-400 mt-0.5">{formatCurrency(totalPaid)}</p>
               </div>
               <div>
                 <span className="text-slate-400 uppercase font-bold text-[10px]">Employment Rate</span>
-                <p className="text-lg font-extrabold text-cyan-400 mt-0.5">
-                  {comparison.employed.blossomPct}%
-                </p>
               </div>
             </div>
 
