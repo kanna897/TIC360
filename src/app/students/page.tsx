@@ -46,6 +46,10 @@ export default function StudentsPage() {
     updateStudent,
     deleteStudent,
     currentRole,
+    monthlyAttendance,
+    settings,
+    attendanceSessions,
+    attendanceMarks,
   } = useStore();
 
   const [copiedLinkToast, setCopiedLinkToast] = useState(false);
@@ -625,13 +629,49 @@ export default function StudentsPage() {
                     </td>
                   </tr>
                 ) : (
-                  paginatedStudents.map((stu, index) => (
-                    <tr
-                      key={stu.id}
-                      className="hover:bg-slate-900/80 transition-colors group border-b border-slate-800/60"
-                    >
-                      {/* NO */}
-                      <td className="py-3.5 px-2 text-center font-bold text-slate-300 text-sm sm:text-base">
+                  paginatedStudents.map((stu, index) => {
+                    const isDropout = stu.currentStatus === 'Dropout';
+                    
+                    // Live Attendance Calculation
+                    const isFrontend = stu.courseName === 'Frontend Developer' || stu.courseId === 'Frontend Developer';
+                    const isFullStack = !isFrontend;
+                    
+                    const mySessions = attendanceSessions.filter(ses => {
+                      let targetGroup = 'All';
+                      if ((ses.group === 'Group A' || ses.group === 'A') && isFullStack && (stu.group === 'Group A' || stu.group === 'A')) targetGroup = 'Group A';
+                      else if ((ses.group === 'Group B' || ses.group === 'B') && isFullStack && (stu.group === 'Group B' || stu.group === 'B')) targetGroup = 'Group B';
+                      else if (ses.group === 'Frontend Developer' && isFrontend) targetGroup = 'Frontend Developer';
+                      else if (ses.group === 'All') targetGroup = 'All';
+                      
+                      return ses.group === 'All' || ses.group === targetGroup || (targetGroup === 'Group A' && ses.group === 'A');
+                    });
+                    
+                    let presentCount = 0;
+                    let totalCount = mySessions.length;
+                    
+                    mySessions.forEach(ses => {
+                       const mark = attendanceMarks[ses.id]?.[stu.id];
+                       // Default is Present if no mark is recorded yet in a created session (matches UI behavior)
+                       if (mark === 'P' || mark === 'L' || !mark) presentCount++;
+                    });
+                    
+                    const livePercentage = totalCount > 0 ? (presentCount / totalCount) * 100 : 100;
+                    const isLowAttendance = !isDropout && (livePercentage < settings.attendanceGoodThreshold);
+
+                    let rowClass = "hover:bg-slate-900/80 transition-colors group border-b border-slate-800/60";
+                    if (isDropout) {
+                      rowClass = "bg-red-950/40 hover:bg-red-900/40 border-b border-red-900/50 transition-colors group";
+                    } else if (isLowAttendance) {
+                      rowClass = "bg-amber-950/20 hover:bg-amber-900/30 border-b border-amber-900/50 transition-colors group";
+                    }
+
+                    return (
+                      <tr
+                        key={stu.id}
+                        className={rowClass}
+                      >
+                        {/* NO */}
+                        <td className="py-3.5 px-2 text-center font-bold text-slate-300 text-sm sm:text-base">
                         {(currentPage - 1) * itemsPerPage + index + 1}
                       </td>
 
@@ -717,7 +757,8 @@ export default function StudentsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))
+                  );
+                })
                 )}
               </tbody>
             </table>
