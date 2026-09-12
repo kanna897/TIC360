@@ -332,10 +332,14 @@ export default function StudentsPage() {
 
           // Check if this row is a Group Header
           const rowText = row.map(c => String(c || '').trim().toUpperCase()).join(' ');
-          if (rowText.includes('GROUP A') && !rowText.includes('UT NO')) {
+          // Regex matches GROUP A, GROUP "A", GROUP-A, GROUP A STUDENTS, etc.
+          const isGroupA = /\bGROUP\s*["-]?[A]["-]?(\s*STUDENTS)?\b/.test(rowText) && !rowText.includes('UT NO');
+          const isGroupB = /\bGROUP\s*["-]?[B]["-]?(\s*STUDENTS)?\b/.test(rowText) && !rowText.includes('UT NO');
+
+          if (isGroupA) {
             currentGroup = 'Group A';
             continue;
-          } else if (rowText.includes('GROUP B') && !rowText.includes('UT NO')) {
+          } else if (isGroupB) {
             currentGroup = 'Group B';
             continue;
           }

@@ -82,11 +82,13 @@ export default function AttendancePage() {
       // Hide dummy students created via Blossom Excel import from attendance view
       if (s.isDummy) return false;
 
-      // If group is 'Group A', include students with group 'Group A', 'A', or undefined default
+      // Strict filtering: Only show students who explicitly belong to the selected group.
+      // If group is 'Group A', include students with group 'Group A' or 'A'.
       const matchesGroup =
         selectedGroup === 'all' ||
         s.group === selectedGroup ||
-        (selectedGroup === 'Group A' && (!s.group || s.group === 'A'));
+        (selectedGroup === 'Group A' && s.group === 'A') ||
+        (selectedGroup === 'Group B' && s.group === 'B');
       const matchesBatch = selectedBatch === 'all' || s.batchId === selectedBatch;
       const matchesSearch =
         s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
