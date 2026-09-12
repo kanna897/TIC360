@@ -55,6 +55,9 @@ export default function StudentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
   // Selected Student for View Modal
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
@@ -119,6 +122,18 @@ export default function StudentsPage() {
       return matchesSearch && matchesBatch && matchesCourse && matchesStatus && isDummyVisible;
     });
   }, [students, searchQuery, batchFilter, courseFilter, statusFilter]);
+
+  // Reset to first page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, batchFilter, courseFilter, statusFilter]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+  const paginatedStudents = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredStudents.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredStudents, currentPage]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -591,7 +606,7 @@ export default function StudentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80 text-sm">
-                {filteredStudents.length === 0 ? (
+                {paginatedStudents.length === 0 ? (
                   <tr>
                     <td
                       colSpan={9}
@@ -601,14 +616,14 @@ export default function StudentsPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredStudents.map((stu, index) => (
+                  paginatedStudents.map((stu, index) => (
                     <tr
                       key={stu.id}
                       className="hover:bg-slate-900/80 transition-colors group border-b border-slate-800/60"
                     >
                       {/* NO */}
                       <td className="py-3.5 px-2 text-center font-bold text-slate-300 text-sm sm:text-base">
-                        {index + 1}
+                        {(currentPage - 1) * itemsPerPage + index + 1}
                       </td>
 
                       {/* UT NO */}
@@ -698,6 +713,58 @@ export default function StudentsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-800/60 bg-slate-900/50">
+              <div className="text-xs sm:text-sm text-slate-400">
+                Showing <span className="font-medium text-slate-200">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                <span className="font-medium text-slate-200">
+                  {Math.min(currentPage * itemsPerPage, filteredStudents.length)}
+                </span>{' '}
+                of <span className="font-medium text-slate-200">{filteredStudents.length}</span> students
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="text-xs h-8 px-3"
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === totalPages || Math.abs(currentPage - p) <= 1)
+                    .map((page, i, arr) => (
+                      <React.Fragment key={page}>
+                        {i > 0 && arr[i - 1] !== page - 1 && <span className="text-slate-500 px-1">...</span>}
+                        <button
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-8 h-8 rounded-md text-xs font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-white'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      </React.Fragment>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="text-xs h-8 px-3"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
 
