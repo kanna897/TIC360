@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Users,
@@ -151,15 +151,48 @@ export default function DashboardPage() {
     { name: 'Self Employed', value: selfEmployedCount || 0, color: '#06b6d4' },
     { name: 'Looking / Unemployed', value: unemployedCount || 0, color: '#f59e0b' },
   ];
+  // Aggregate historical attendance data dynamically
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  
+  const attendanceTrendData = useMemo(() => {
+    const dataByMonth: Record<string, any> = {};
+    monthlyAttendance.forEach(a => {
+      const parts = a.month.split('-');
+      if (parts.length < 2) return;
+      const mLabel = monthNames[parseInt(parts[1], 10) - 1]; // e.g., 'Apr'
+      if (!dataByMonth[a.month]) {
+        dataByMonth[a.month] = { sortKey: a.month, month: mLabel, excellent: 0, average: 0, critical: 0 };
+      }
+      if (a.attendancePercentage >= settings.attendanceGoodThreshold) {
+        dataByMonth[a.month].excellent += 1;
+      } else if (a.attendancePercentage >= settings.attendanceLowThreshold) {
+        dataByMonth[a.month].average += 1;
+      } else {
+        dataByMonth[a.month].critical += 1;
+      }
+    });
+    return Object.values(dataByMonth).sort((a: any, b: any) => a.sortKey.localeCompare(b.sortKey));
+  }, [monthlyAttendance, settings]);
 
-  // Real historical trend data for Stacked Bar Charts (currently showing only latest month since we have no history)
-  const attendanceTrendData = [
-    { month: 'Aug', excellent: goodAttendanceCount || 0, average: lowAttendanceCount || 0, critical: criticalAttendanceCount || 0 },
-  ];
-
-  const paymentTrendData = [
-    { month: 'Aug', eligible: eligiblePayments || 0, paid: paidPayments || 0, notEligible: notEligiblePayments || 0 },
-  ];
+  const paymentTrendData = useMemo(() => {
+    const dataByMonth: Record<string, any> = {};
+    blossomPayments.forEach(p => {
+      const parts = p.month.split('-');
+      if (parts.length < 2) return;
+      const mLabel = monthNames[parseInt(parts[1], 10) - 1];
+      if (!dataByMonth[p.month]) {
+        dataByMonth[p.month] = { sortKey: p.month, month: mLabel, eligible: 0, paid: 0, notEligible: 0 };
+      }
+      if (p.status === 'Paid') {
+        dataByMonth[p.month].paid += 1;
+      } else if (p.status === 'Eligible' || p.status === 'Pending') {
+        dataByMonth[p.month].eligible += 1;
+      } else if (p.status === 'Not Eligible') {
+        dataByMonth[p.month].notEligible += 1;
+      }
+    });
+    return Object.values(dataByMonth).sort((a: any, b: any) => a.sortKey.localeCompare(b.sortKey));
+  }, [blossomPayments]);
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn">
@@ -289,7 +322,7 @@ export default function DashboardPage() {
             <div>
               <div className="flex items-center gap-2">
                 <CalendarCheck className="w-4 h-4 text-blue-400" />
-                <CardTitle>August 2026 Attendance Summary</CardTitle>
+                <CardTitle>Attendance Trends</CardTitle>
               </div>
               <CardDescription>Monthly student attendance & threshold metrics</CardDescription>
             </div>
