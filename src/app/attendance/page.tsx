@@ -81,8 +81,8 @@ export default function AttendancePage() {
       // Hide dummy students created via Blossom Excel import from attendance view
       if (s.isDummy) return false;
 
-      const isFullStack = s.courseName === 'Full Stack Developer' || s.courseId === 'Full Stack Developer';
       const isFrontend = s.courseName === 'Frontend Developer' || s.courseId === 'Frontend Developer';
+      const isFullStack = !isFrontend;
 
       let matchesGroup = false;
       if (selectedGroup === 'all') matchesGroup = true;

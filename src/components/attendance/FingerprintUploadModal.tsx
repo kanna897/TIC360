@@ -137,8 +137,8 @@ export const FingerprintUploadModal: React.FC<FingerprintUploadModalProps> = ({
                 const groupLogs = parsedLogs.filter((log) => {
                   const g = log.group?.toLowerCase() || '';
                   const c = log.courseName?.toLowerCase() || '';
-                  const isFullStack = c === 'full stack developer';
                   const isFrontend = c === 'frontend developer';
+                  const isFullStack = !isFrontend;
 
                   if (groupName === 'Full Stack - Group A') return isFullStack && (g === 'group a' || g === 'a');
                   if (groupName === 'Full Stack - Group B') return isFullStack && (g === 'group b' || g === 'b');
