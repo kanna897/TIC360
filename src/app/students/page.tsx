@@ -362,9 +362,9 @@ export default function StudentsPage() {
           // Extract relevant fields mapping either to table headers or export headers
           const utNumber = normalizedRow['utno'] || normalizedRow['utnumber'];
           const fullName = normalizedRow['name'] || normalizedRow['fullname'] || normalizedRow['studentsname'];
-          const nic = normalizedRow['nicno'] || normalizedRow['nic'];
+          const nic = normalizedRow['nicno'] || normalizedRow['nic'] || '';
           
-          if (!utNumber || !fullName || !nic || String(utNumber).trim() === '') {
+          if (!utNumber || !fullName || String(utNumber).trim() === '') {
             if (row.some(cell => cell)) skippedCount++; // only count if row wasn't entirely empty
             continue;
           }
@@ -382,7 +382,7 @@ export default function StudentsPage() {
           // Check if UT Number or NIC already exists
           const existingStudent = students.find(
             (s) => s.utNumber.trim().toLowerCase() === String(utNumber).trim().toLowerCase() ||
-                   s.nic.trim().toLowerCase() === String(nic).trim().toLowerCase()
+                   (nic && String(nic).trim() !== '' && s.nic.trim().toLowerCase() === String(nic).trim().toLowerCase())
           );
 
           if (existingStudent) {
