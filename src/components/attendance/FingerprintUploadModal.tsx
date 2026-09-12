@@ -133,12 +133,19 @@ export const FingerprintUploadModal: React.FC<FingerprintUploadModalProps> = ({
             </div>
 
             <div className="space-y-6">
-              {['Group A', 'Group B', 'Unassigned'].map((groupName) => {
+              {['Full Stack - Group A', 'Full Stack - Group B', 'Frontend Developer', 'Unassigned'].map((groupName) => {
                 const groupLogs = parsedLogs.filter((log) => {
                   const g = log.group?.toLowerCase() || '';
-                  if (groupName === 'Group A') return g === 'group a' || g === 'a';
-                  if (groupName === 'Group B') return g === 'group b' || g === 'b';
-                  return g !== 'group a' && g !== 'a' && g !== 'group b' && g !== 'b';
+                  const c = log.courseName?.toLowerCase() || '';
+                  const isFullStack = c === 'full stack developer';
+                  const isFrontend = c === 'frontend developer';
+
+                  if (groupName === 'Full Stack - Group A') return isFullStack && (g === 'group a' || g === 'a');
+                  if (groupName === 'Full Stack - Group B') return isFullStack && (g === 'group b' || g === 'b');
+                  if (groupName === 'Frontend Developer') return isFrontend;
+                  
+                  // Unassigned fallback
+                  return !(isFullStack && (g === 'group a' || g === 'a' || g === 'group b' || g === 'b')) && !isFrontend;
                 });
 
                 if (groupLogs.length === 0) return null;

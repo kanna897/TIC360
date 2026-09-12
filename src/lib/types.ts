@@ -126,6 +126,7 @@ export interface DailyTimeLog {
   totalHours: number; // calculated hours
   extraHours: number; // anything beyond 7 hours
   group?: string; // Group A or Group B
+  courseName?: string; // e.g. Frontend Developer or Full Stack Developer
 }
 
 export type BlossomPaymentStatus = 'Eligible' | 'Not Eligible' | 'Paid' | 'Pending';

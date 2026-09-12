@@ -80,6 +80,7 @@ export const parseFingerprintCSV = (
       status,
       totalHours,
       extraHours,
+      courseName: student.courseName,
     });
   }
 

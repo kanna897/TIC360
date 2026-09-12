@@ -53,8 +53,7 @@ export default function AttendancePage() {
     currentRole,
   } = useStore();
 
-  // State
-  const [selectedGroup, setSelectedGroup] = useState<'Group A' | 'Group B' | 'all'>('Group A');
+  const [selectedGroup, setSelectedGroup] = useState<'Full Stack - Group A' | 'Full Stack - Group B' | 'Frontend Developer' | 'all'>('Full Stack - Group A');
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [selectedMonthOnly, setSelectedMonthOnly] = useState<string>('04'); // Default '04' = April (Matches user's Excel)
   const [selectedBatch, setSelectedBatch] = useState<string>('all');
@@ -82,13 +81,18 @@ export default function AttendancePage() {
       // Hide dummy students created via Blossom Excel import from attendance view
       if (s.isDummy) return false;
 
-      // Strict filtering: Only show students who explicitly belong to the selected group.
-      // If group is 'Group A', include students with group 'Group A' or 'A'.
-      const matchesGroup =
-        selectedGroup === 'all' ||
-        s.group === selectedGroup ||
-        (selectedGroup === 'Group A' && s.group === 'A') ||
-        (selectedGroup === 'Group B' && s.group === 'B');
+      const isFullStack = s.courseName === 'Full Stack Developer' || s.courseId === 'Full Stack Developer';
+      const isFrontend = s.courseName === 'Frontend Developer' || s.courseId === 'Frontend Developer';
+
+      let matchesGroup = false;
+      if (selectedGroup === 'all') matchesGroup = true;
+      else if (selectedGroup === 'Full Stack - Group A') {
+        matchesGroup = isFullStack && (s.group === 'Group A' || s.group === 'A');
+      } else if (selectedGroup === 'Full Stack - Group B') {
+        matchesGroup = isFullStack && (s.group === 'Group B' || s.group === 'B');
+      } else if (selectedGroup === 'Frontend Developer') {
+        matchesGroup = isFrontend;
+      }
       const matchesBatch = selectedBatch === 'all' || s.batchId === selectedBatch;
       const matchesSearch =
         s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -357,30 +361,43 @@ export default function AttendancePage() {
       {/* Main 2-Tab Switcher (Matching Exact Green Pill Design) */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-2 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Tab 1: GROUP "A" */}
+          {/* Tab 1: FULL STACK - GROUP A */}
           <button
-            onClick={() => setSelectedGroup('Group A')}
+            onClick={() => setSelectedGroup('Full Stack - Group A')}
             className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2.5 ${
-              selectedGroup === 'Group A'
+              selectedGroup === 'Full Stack - Group A'
                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>🅰️ GROUP &quot;A&quot; Students Attendance Details</span>
+            <span>👨‍💻 FULL STACK - GROUP &quot;A&quot;</span>
           </button>
 
-          {/* Tab 2: GROUP "B" */}
+          {/* Tab 2: FULL STACK - GROUP B */}
           <button
-            onClick={() => setSelectedGroup('Group B')}
+            onClick={() => setSelectedGroup('Full Stack - Group B')}
             className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2.5 ${
-              selectedGroup === 'Group B'
+              selectedGroup === 'Full Stack - Group B'
                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>🅱️ GROUP &quot;B&quot; Students Attendance Details</span>
+            <span>👨‍💻 FULL STACK - GROUP &quot;B&quot;</span>
+          </button>
+
+          {/* Tab 3: FRONTEND DEVELOPER */}
+          <button
+            onClick={() => setSelectedGroup('Frontend Developer')}
+            className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2.5 ${
+              selectedGroup === 'Frontend Developer'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>⚛️ FRONTEND DEVELOPER</span>
           </button>
 
 
