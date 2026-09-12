@@ -360,13 +360,20 @@ export default function StudentsPage() {
 
           // We ignore 'status' and 'action' columns as requested by the user
           // Extract relevant fields mapping either to table headers or export headers
-          const utNumber = normalizedRow['utno'] || normalizedRow['utnumber'];
-          const fullName = normalizedRow['name'] || normalizedRow['fullname'] || normalizedRow['studentsname'];
+          let utNumber = normalizedRow['utno'] || normalizedRow['utnumber'];
+          let fullName = normalizedRow['name'] || normalizedRow['fullname'] || normalizedRow['studentsname'];
           const nic = normalizedRow['nicno'] || normalizedRow['nic'] || '';
           
-          if (!utNumber || !fullName || String(utNumber).trim() === '') {
-            if (row.some(cell => cell)) skippedCount++; // only count if row wasn't entirely empty
+          if (!utNumber && !fullName && !nic && !normalizedRow['phoneno'] && !normalizedRow['phone'] && !normalizedRow['district']) {
+            if (row.some(cell => cell)) skippedCount++; // skip purely empty or garbage rows
             continue;
+          }
+
+          if (!fullName || String(fullName).trim() === '') {
+            fullName = 'Unknown Student';
+          }
+          if (!utNumber || String(utNumber).trim() === '') {
+            utNumber = `UT-2026-TMP-${Math.floor(1000 + Math.random() * 9000)}`;
           }
 
           const phone = normalizedRow['phoneno'] || normalizedRow['phone'] || '';
