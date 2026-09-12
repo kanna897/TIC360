@@ -5,7 +5,7 @@ export type UserRole =
   | 'Data Entry Officer'
   | 'Student';
 
-export type StudentStatus = 'Active' | 'Completed' | 'Dropout' | 'Other';
+export type StudentStatus = 'Active' | 'Completed' | 'Dropout' | 'Other' | 'Low Attendance';
 export type Gender = 'Male' | 'Female' | 'Other';
 
 export interface EmergencyContact {

@@ -52,7 +52,7 @@ export default function StudentsPage() {
   const [batchFilter, setBatchFilter] = useState<string>('all');
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [blossomFilter, setBlossomFilter] = useState<string>('all');
+
 
   // Selected Student for View Modal
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -113,16 +113,11 @@ export default function StudentsPage() {
       const matchesBatch = batchFilter === 'all' || s.batchId === batchFilter;
       const matchesCourse = courseFilter === 'all' || s.courseId === courseFilter;
       const matchesStatus = statusFilter === 'all' || s.currentStatus === statusFilter;
-      const matchesBlossom =
-        blossomFilter === 'all' ||
-        (blossomFilter === 'blossom' && s.isBlossomTrust) ||
-        (blossomFilter === 'non-blossom' && !s.isBlossomTrust);
-      
-      const isDummyVisible = s.isDummy ? blossomFilter === 'blossom' : true;
+      const isDummyVisible = !s.isDummy; // Hide dummy data in standard view if desired, or set to true
 
-      return matchesSearch && matchesBatch && matchesCourse && matchesStatus && matchesBlossom && isDummyVisible;
+      return matchesSearch && matchesBatch && matchesCourse && matchesStatus && isDummyVisible;
     });
-  }, [students, searchQuery, batchFilter, courseFilter, statusFilter, blossomFilter]);
+  }, [students, searchQuery, batchFilter, courseFilter, statusFilter]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -260,46 +255,7 @@ export default function StudentsPage() {
     setEditingStudent(null);
   };
 
-  const [viewMode, setViewMode] = useState<'standard' | 'blossom'>('standard');
-
   const handleExportCSV = () => {
-    if (viewMode === 'blossom' || blossomFilter === 'blossom') {
-      const exportData = filteredStudents
-        .filter((s) => s.isBlossomTrust || blossomFilter !== 'blossom')
-        .map((s, idx) => ({
-          'NO': idx + 1,
-          'UT NO': s.utNumber,
-          'NAME': s.fullName,
-          'PHONE NO': s.phone.replace('+94 ', '0').replace(/ /g, ''),
-          'DISTRICT': s.district,
-          'BENEFICIARY NAME': s.bankDetails?.beneficiaryName || s.fullName,
-          'BLOSSOM TRUST AMT': s.isBlossomTrust ? 'LKR 15,000' : 'LKR 0',
-          'BANK': s.bankDetails?.bankName || 'N/A',
-          'BRANCH NAME': s.bankDetails?.branchName || 'N/A',
-          'BR. CODE': s.bankDetails?.branchCode || '1',
-          'ACCOUNT NO': s.bankDetails?.accountNumber || 'N/A',
-        }));
-      exportToCSV('TIC360_Blossom_Trust_Student_Details', exportData);
-      return;
-    }
-
-    if (blossomFilter === 'non-blossom') {
-      const exportData = filteredStudents.map((s, idx) => ({
-        'NO': idx + 1,
-        'UT NO': s.utNumber,
-        'NAME': s.fullName,
-        'COURSE': s.courseName,
-        'BATCH': s.batchName,
-        'STATUS': s.currentStatus,
-        'NIC': s.nic,
-        'PHONE': s.phone,
-        'EMAIL': s.email,
-        'DISTRICT': s.district,
-      }));
-      exportToCSV('TIC360_Non_Blossom_Students_Roster', exportData);
-      return;
-    }
-
     const exportData = filteredStudents.map((s) => ({
       UT_Number: s.utNumber,
       Full_Name: s.fullName,
@@ -316,49 +272,6 @@ export default function StudentsPage() {
   };
 
   const handleExportExcel = () => {
-    if (viewMode === 'blossom' || blossomFilter === 'blossom') {
-      const exportData = filteredStudents
-        .filter((s) => s.isBlossomTrust || blossomFilter !== 'blossom')
-        .map((s, idx) => ({
-          'NO': idx + 1,
-          'UT NO': s.utNumber,
-          'NAME': s.fullName,
-          'PHONE NO': s.phone.replace('+94 ', '0').replace(/ /g, ''),
-          'DISTRICT': s.district,
-          'BENEFICIARY NAME': s.bankDetails?.beneficiaryName || s.fullName,
-          'BLOSSOM TRUST AMT': s.isBlossomTrust ? 'LKR 15,000' : 'LKR 0',
-          'BANK': s.bankDetails?.bankName || 'N/A',
-          'BRANCH NAME': s.bankDetails?.branchName || 'N/A',
-          'BR. CODE': s.bankDetails?.branchCode || '1',
-          'ACCOUNT NO': s.bankDetails?.accountNumber || 'N/A',
-        }));
-      exportToExcel('TIC360_Blossom_Trust_Student_Details', [
-        { sheetName: 'Blossom Trust Details', data: exportData },
-      ]);
-      return;
-    }
-
-    if (blossomFilter === 'non-blossom') {
-      const exportData = filteredStudents.map((s, idx) => ({
-        'NO': idx + 1,
-        'UT Number': s.utNumber,
-        'Full Name': s.fullName,
-        'Course': s.courseName,
-        'Batch': s.batchName,
-        'Current Status': s.currentStatus,
-        'NIC': s.nic,
-        'DOB': s.dob,
-        'Gender': s.gender,
-        'Phone': s.phone,
-        'Email': s.email,
-        'District': s.district,
-      }));
-      exportToExcel('TIC360_Non_Blossom_Students_Roster', [
-        { sheetName: 'Non-Blossom Students', data: exportData },
-      ]);
-      return;
-    }
-
     const exportData = filteredStudents.map((s) => ({
       'UT Number': s.utNumber,
       'Full Name': s.fullName,
@@ -437,68 +350,7 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      {/* Main 2-Tab Switcher: Blossom Trust Students vs Non-Blossom Students */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-2 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Tab 1: Blossom Trust Students */}
-          <button
-            onClick={() => {
-              setBlossomFilter('blossom');
-              setViewMode('blossom');
-            }}
-            className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2.5 ${
-              blossomFilter === 'blossom'
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-            }`}
-          >
-            <HeartHandshake className="w-4 h-4" />
-            <span>🌸 Blossom Trust Student Beneficiary Details (Bank & Amount)</span>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full font-extrabold ${
-                blossomFilter === 'blossom'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-slate-800 text-slate-300'
-              }`}
-            >
-              {students.filter((s) => s.isBlossomTrust).length}
-            </span>
-          </button>
 
-          {/* Tab 2: Non-Blossom Students */}
-          <button
-            onClick={() => {
-              setBlossomFilter('non-blossom');
-              setViewMode('standard');
-            }}
-            className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2.5 ${
-              blossomFilter === 'non-blossom'
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-            }`}
-          >
-            <GraduationCap className="w-4 h-4" />
-            <span>🎓 Non-Blossom Student Academic Details (General Trainees)</span>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full font-extrabold ${
-                blossomFilter === 'non-blossom'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-slate-800 text-slate-300'
-              }`}
-            >
-              {students.filter((s) => !s.isBlossomTrust).length}
-            </span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-slate-400 hidden md:flex pr-2">
-          <span className="font-semibold text-slate-300">
-            {blossomFilter === 'blossom'
-              ? '🌸 Showing Blossom Trust Beneficiaries'
-              : '🎓 Showing Non-Blossom Academic Trainees'}
-          </span>
-        </div>
-      </div>
 
       {/* Filter and Search Bar */}
       <Card>
@@ -551,151 +403,12 @@ export default function StudentsPage() {
                 />
               </div>
 
-              <div className="w-full sm:w-36">
-                <Select
-                  value={blossomFilter}
-                  onChange={(e) => {
-                    setBlossomFilter(e.target.value);
-                    if (e.target.value === 'blossom') setViewMode('blossom');
-                  }}
-                  options={[
-                    { value: 'all', label: 'Category: All' },
-                    { value: 'blossom', label: 'Blossom Trust' },
-                    { value: 'non-blossom', label: 'Non-Blossom' },
-                  ]}
-                />
-              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Students Table */}
-      {viewMode === 'blossom' || blossomFilter === 'blossom' ? (
-        /* EXACT BLOSSOM TRUST STUDENT DETAILS TABLE AS IN USER'S SCREENSHOT (ENLARGED & FULL VIEW) */
-        <div className="rounded-2xl border-2 border-lime-500/60 bg-slate-950/95 shadow-2xl overflow-hidden animate-fadeIn">
-          <div className="overflow-x-auto w-full">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="border-b-2 border-slate-800 bg-slate-900/90 text-xs uppercase tracking-wider font-extrabold text-slate-300 select-none">
-                  <th className="py-3.5 px-2 text-center w-8 text-slate-400">NO</th>
-                  <th className="py-3.5 px-2 text-white whitespace-nowrap">UT NO</th>
-                  <th className="py-3.5 px-2.5 text-slate-100 whitespace-nowrap">NAME</th>
-                  <th className="py-3.5 px-2.5 text-slate-200 whitespace-nowrap">NIC NO</th>
-                  <th className="py-3.5 px-2 text-slate-200 whitespace-nowrap">PHONE NO</th>
-                  <th className="py-3.5 px-2 text-slate-200 whitespace-nowrap">DISTRICT</th>
-                  <th className="py-3.5 px-2.5 text-slate-100 whitespace-nowrap">BENEFICIARY NAME</th>
-                  <th className="py-3.5 px-2 text-indigo-400 font-black whitespace-nowrap text-center">BLOSSOM TRUST AMT</th>
-                  <th className="py-3.5 px-2 text-slate-200 whitespace-nowrap">BANK</th>
-                  <th className="py-3.5 px-2 text-slate-200 whitespace-nowrap">BRANCH NAME</th>
-                  <th className="py-3.5 px-1.5 text-center text-slate-200 whitespace-nowrap">BR. CODE</th>
-                  <th className="py-3.5 px-2 text-slate-100 whitespace-nowrap">ACCOUNT NO</th>
-                  <th className="py-3.5 px-2 text-center text-slate-400 whitespace-nowrap">ACTION</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/80 text-sm">
-                {filteredStudents.length === 0 ? (
-                  <tr>
-                    <td colSpan={13} className="py-14 text-center text-base text-slate-400">
-                      No Blossom Trust student records found matching your filters.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredStudents.map((stu, index) => (
-                    <tr
-                      key={stu.id}
-                      className="hover:bg-slate-900/80 transition-colors group border-b border-slate-800/60"
-                    >
-                      {/* NO */}
-                      <td className="py-3.5 px-2 text-center font-bold text-slate-300 text-sm sm:text-base">
-                        {index + 1}
-                      </td>
-
-                      {/* UT NO */}
-                      <td className="py-3.5 px-2 font-extrabold text-white font-mono text-sm sm:text-base tracking-wide whitespace-nowrap">
-                        {stu.utNumber}
-                      </td>
-
-                      {/* NAME */}
-                      <td className="py-3.5 px-2.5 font-bold text-slate-100 group-hover:text-blue-400 transition-colors text-sm sm:text-base whitespace-nowrap">
-                        {stu.fullName}
-                      </td>
-
-                      {/* NIC NO */}
-                      <td className="py-3.5 px-2.5 font-mono font-medium text-slate-300 text-sm sm:text-base whitespace-nowrap">
-                        {stu.nic}
-                      </td>
-
-                      {/* PHONE NO */}
-                      <td className="py-3.5 px-2 font-mono font-medium text-slate-200 text-sm sm:text-base whitespace-nowrap">
-                        {stu.phone.replace('+94 ', '0').replace(/ /g, '')}
-                      </td>
-
-                      {/* DISTRICT */}
-                      <td className="py-3.5 px-2 text-slate-300 font-medium text-sm sm:text-base whitespace-nowrap">
-                        {stu.district}
-                      </td>
-
-                      {/* BENEFICIARY NAME */}
-                      <td className="py-3.5 px-2.5 text-slate-100 font-bold text-sm sm:text-base whitespace-nowrap">
-                        {stu.bankDetails?.beneficiaryName || stu.fullName}
-                      </td>
-
-                      {/* BLOSSOM TRUST AMT */}
-                      <td className="py-3.5 px-2 font-extrabold text-indigo-400 font-mono tracking-wide text-sm sm:text-base whitespace-nowrap text-center">
-                        {stu.isBlossomTrust ? 'LKR 15,000' : 'LKR 0'}
-                      </td>
-
-                      {/* BANK */}
-                      <td className="py-3.5 px-2 text-slate-200 font-semibold text-sm sm:text-base whitespace-nowrap">
-                        {stu.bankDetails?.bankName || 'N/A'}
-                      </td>
-
-                      {/* BRANCH NAME */}
-                      <td className="py-3.5 px-2 text-slate-200 font-medium text-sm sm:text-base whitespace-nowrap">
-                        {stu.bankDetails?.branchName || 'N/A'}
-                      </td>
-
-                      {/* BR. CODE */}
-                      <td className="py-3.5 px-1.5 text-center font-mono font-extrabold text-slate-200 text-sm sm:text-base whitespace-nowrap">
-                        {stu.bankDetails?.branchCode || '1'}
-                      </td>
-
-                      {/* ACCOUNT NO */}
-                      <td className="py-3.5 px-2 font-mono font-extrabold text-white tracking-wider text-sm sm:text-base whitespace-nowrap">
-                        {stu.bankDetails?.accountNumber || 'N/A'}
-                      </td>
-
-                      {/* ACTIONS */}
-                      <td className="py-3.5 px-2 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            onClick={() => setSelectedStudent(stu)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-slate-800 transition-colors"
-                            title="View Full Profile"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          {currentRole !== 'Student' && (
-                            <button
-                              onClick={() => setEditingStudent(stu)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
-                              title="Edit Student Bank Details"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        /* NON-BLOSSOM & STANDARD STUDENTS DIRECTORY TABLE (SEPARATE COLUMNS, WIDESCREEN VIEW) */
+      {/* STANDARD STUDENTS DIRECTORY TABLE (SEPARATE COLUMNS, WIDESCREEN VIEW) */}
         <div className="rounded-2xl border-2 border-indigo-500/60 bg-slate-950/95 shadow-2xl overflow-hidden animate-fadeIn">
           <div className="overflow-x-auto w-full">
             <table className="w-full text-left border-collapse text-sm">
@@ -709,9 +422,7 @@ export default function StudentsPage() {
                   <th className="py-3.5 px-3 text-slate-200 whitespace-nowrap">EMAIL</th>
                   <th className="py-3.5 px-2.5 text-slate-200 whitespace-nowrap">DISTRICT</th>
                   <th className="py-3.5 px-3 text-slate-100 whitespace-nowrap">COURSE</th>
-                  {blossomFilter === 'all' && (
-                    <th className="py-3.5 px-2.5 text-center text-emerald-400 whitespace-nowrap">BLOSSOM SCHOLAR</th>
-                  )}
+
                   <th className="py-3.5 px-2.5 text-center text-slate-200 whitespace-nowrap">STATUS</th>
                   <th className="py-3.5 px-2 text-center text-slate-400 whitespace-nowrap">ACTION</th>
                 </tr>
@@ -720,7 +431,7 @@ export default function StudentsPage() {
                 {filteredStudents.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={blossomFilter === 'all' ? 11 : 10}
+                      colSpan={10}
                       className="py-14 text-center text-base text-slate-400"
                     >
                       No student records found matching your filters.
@@ -772,18 +483,7 @@ export default function StudentsPage() {
                         {stu.courseName}
                       </td>
 
-                      {/* BLOSSOM SCHOLAR BADGE (ONLY IN ALL STUDENTS VIEW) */}
-                      {blossomFilter === 'all' && (
-                        <td className="py-3.5 px-2.5 text-center whitespace-nowrap">
-                          {stu.isBlossomTrust ? (
-                            <Badge variant="emerald" dot>
-                              Scholar
-                            </Badge>
-                          ) : (
-                            <span className="text-slate-500 font-bold text-sm">-</span>
-                          )}
-                        </td>
-                      )}
+
 
                       {/* STATUS */}
                       <td className="py-3.5 px-2.5 text-center whitespace-nowrap">
@@ -841,7 +541,7 @@ export default function StudentsPage() {
             </table>
           </div>
         </div>
-      )}
+
 
       {/* VIEW FULL STUDENT PROFILE MODAL */}
       {selectedStudent && (

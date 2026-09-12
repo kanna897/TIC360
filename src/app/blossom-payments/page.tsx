@@ -1085,7 +1085,7 @@ export default function BlossomPaymentsPage() {
               />
             </div>
 
-            <div className="border-t border-slate-800/80 pt-3">
+            <div className="grid grid-cols-2 gap-3 border-t border-slate-800/80 pt-3">
               <Input
                 label="Blossom Trust Amount (LKR)"
                 type="number"
@@ -1097,6 +1097,23 @@ export default function BlossomPaymentsPage() {
                   });
                 }}
                 required
+              />
+              <Select
+                label="Student Status (Eligibility)"
+                value={editingStudent.currentStatus}
+                onChange={(e) => {
+                  setEditingStudent((prev) => {
+                    if (!prev) return null;
+                    return { ...prev, currentStatus: e.target.value as any };
+                  });
+                }}
+                options={[
+                  { value: 'Active', label: 'Active (Eligible)' },
+                  { value: 'Dropout', label: 'Dropout (Ineligible)' },
+                  { value: 'Low Attendance', label: 'Low Attendance (Ineligible)' },
+                  { value: 'Completed', label: 'Completed' },
+                  { value: 'Other', label: 'Other' },
+                ]}
               />
             </div>
 

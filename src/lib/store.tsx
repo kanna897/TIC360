@@ -650,6 +650,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
       if (student.isBlossomTrust) {
         const isDropout = student.currentStatus === 'Dropout';
+        const isManualLowAtt = student.currentStatus === 'Low Attendance';
         const isLowAttendance = rec.attendancePercentage < settings.paymentEligibilityAttendanceThreshold;
 
         let isEligible = true;
@@ -662,12 +663,19 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           ineligibilityReason = `Student Dropped Out`;
           amount = 0;
           paymentStatus = 'Not Eligible';
-        } else if (isLowAttendance) {
+        } else if (isManualLowAtt) {
+          isEligible = false;
+          ineligibilityReason = `Low Attendance (Manually Marked)`;
+          amount = 0;
+          paymentStatus = 'Not Eligible';
+        } else if (isLowAttendance && !student.isDummy) {
+          // Normal students are dynamically checked; dummy students skip dynamic low attendance check if not marked manually
           isEligible = false;
           ineligibilityReason = `Low Attendance (${rec.attendancePercentage.toFixed(1)}% < ${settings.paymentEligibilityAttendanceThreshold}% threshold)`;
           amount = 0;
           paymentStatus = 'Not Eligible';
         }
+
 
         const existingPayment = blossomPayments.find(
           (p) => p.studentId === rec.studentId && p.month === rec.month
