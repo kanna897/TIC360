@@ -331,13 +331,11 @@ export default function StudentsPage() {
           if (!row || row.length === 0) continue;
 
           // Check if this row is a Group Header
-          const firstCell = String(row[0] || '').trim().toUpperCase();
-          const secondCell = String(row[1] || '').trim().toUpperCase();
-          
-          if (firstCell.includes('GROUP A') || secondCell.includes('GROUP A')) {
+          const rowText = row.map(c => String(c || '').trim().toUpperCase()).join(' ');
+          if (rowText.includes('GROUP A') && !rowText.includes('UT NO')) {
             currentGroup = 'Group A';
             continue;
-          } else if (firstCell.includes('GROUP B') || secondCell.includes('GROUP B')) {
+          } else if (rowText.includes('GROUP B') && !rowText.includes('UT NO')) {
             currentGroup = 'Group B';
             continue;
           }
