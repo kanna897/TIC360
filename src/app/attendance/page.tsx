@@ -125,7 +125,8 @@ export default function AttendancePage() {
 
   // Handle cell click (Toggle: P -> A -> L -> P)
   const handleToggleCell = (sessionId: string, studentId: string) => {
-    const currentMark = attendanceMarks[sessionId]?.[studentId] ?? 'P';
+    const stu = students.find(s => s.id === studentId);
+    const currentMark = attendanceMarks[sessionId]?.[studentId] ?? (stu?.currentStatus === 'Dropout' ? 'A' : 'P');
     let nextMark: AttendanceMark = 'P';
     if (currentMark === 'P') nextMark = 'A';
     else if (currentMark === 'A') nextMark = 'L';
@@ -215,7 +216,7 @@ export default function AttendancePage() {
       let lCount = 0;
 
       monthSessions.forEach((ses) => {
-        const mark = attendanceMarks[ses.id]?.[stu.id] ?? 'P';
+        const mark = attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
         row[`${ses.subject}\n${ses.displayDate}`] = mark;
         if (mark === 'P') pCount += 1;
         else if (mark === 'A') aCount += 1;
@@ -243,7 +244,7 @@ export default function AttendancePage() {
     monthSessions.forEach((ses) => {
       let presentSum = 0;
       groupStudents.forEach((stu) => {
-        const mark = attendanceMarks[ses.id]?.[stu.id] ?? 'P';
+        const mark = attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
         if (mark === 'P') presentSum += 1;
       });
       summaryRow[`${ses.subject}\n${ses.displayDate}`] = presentSum;
@@ -265,7 +266,7 @@ export default function AttendancePage() {
       let lCount = 0;
 
       monthSessions.forEach((ses) => {
-        const mark = attendanceMarks[ses.id]?.[stu.id] ?? 'P';
+        const mark = attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
         if (mark === 'P') pCount += 1;
         else if (mark === 'A') aCount += 1;
         else if (mark === 'L') lCount += 1;
@@ -639,7 +640,7 @@ export default function AttendancePage() {
                   let lCount = 0;
 
                   monthSessions.forEach((ses) => {
-                    const mark = attendanceMarks[ses.id]?.[stu.id] ?? 'P';
+                    const mark = attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
                     if (mark === 'P') pCount += 1;
                     else if (mark === 'A') aCount += 1;
                     else if (mark === 'L') lCount += 1;
@@ -685,7 +686,7 @@ export default function AttendancePage() {
 
                       {/* SESSION P/A CELLS */}
                       {monthSessions.map((ses) => {
-                        const mark = attendanceMarks[ses.id]?.[stu.id] ?? 'P';
+                        const mark = attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
 
                         return (
                           <td
@@ -759,7 +760,7 @@ export default function AttendancePage() {
                 {monthSessions.map((ses) => {
                   let presentCount = 0;
                   groupStudents.forEach((stu) => {
-                    const mark = attendanceMarks[ses.id]?.[stu.id] ?? 'P';
+                    const mark = attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
                     if (mark === 'P') presentCount += 1;
                   });
 
@@ -777,7 +778,7 @@ export default function AttendancePage() {
                   {groupStudents.reduce((sum, stu) => {
                     let l = 0;
                     monthSessions.forEach((ses) => {
-                      if ((attendanceMarks[ses.id]?.[stu.id] ?? 'P') === 'L') l += 1;
+                      if ((attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P')) === 'L') l += 1;
                     });
                     return sum + l;
                   }, 0)}
@@ -786,7 +787,7 @@ export default function AttendancePage() {
                   {groupStudents.reduce((sum, stu) => {
                     let a = 0;
                     monthSessions.forEach((ses) => {
-                      if ((attendanceMarks[ses.id]?.[stu.id] ?? 'P') === 'A') a += 1;
+                      if ((attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P')) === 'A') a += 1;
                     });
                     return sum + a;
                   }, 0)}
@@ -795,7 +796,7 @@ export default function AttendancePage() {
                   {groupStudents.reduce((sum, stu) => {
                     let p = 0;
                     monthSessions.forEach((ses) => {
-                      if ((attendanceMarks[ses.id]?.[stu.id] ?? 'P') === 'P') p += 1;
+                      if ((attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P')) === 'P') p += 1;
                     });
                     return sum + p;
                   }, 0)}
@@ -809,7 +810,7 @@ export default function AttendancePage() {
                         (groupStudents.reduce((sum, stu) => {
                           let p = 0;
                           monthSessions.forEach((ses) => {
-                            if ((attendanceMarks[ses.id]?.[stu.id] ?? 'P') === 'P') p += 1;
+                            if ((attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P')) === 'P') p += 1;
                           });
                           return sum + p;
                         }, 0) /
@@ -853,7 +854,7 @@ export default function AttendancePage() {
                 {monthSessions.map((ses) => {
                   let presentCount = 0;
                   groupStudents.forEach((stu) => {
-                    const mark = attendanceMarks[ses.id]?.[stu.id] ?? 'P';
+                    const mark = attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
                     if (mark === 'P') presentCount += 1;
                   });
                   const dailyPct =

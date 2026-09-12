@@ -871,7 +871,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       const attendanceToRecord = relevantStudents.map((stu) => {
         let presentCount = 0;
         sessions.forEach((ses) => {
-          const m = marks[ses.id]?.[stu.id] ?? 'P';
+          const m = marks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
           if (m === 'P') presentCount += 1;
         });
 
