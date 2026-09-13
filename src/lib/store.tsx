@@ -229,7 +229,19 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     try {
       const sStudents = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-      if (sStudents) setStudents(JSON.parse(sStudents));
+      if (sStudents) {
+        const parsed: Student[] = JSON.parse(sStudents);
+        // Deduplicate by utNumber — keep only the first occurrence of each UT number
+        const seen = new Set<string>();
+        const deduped = parsed.filter((s) => {
+          const key = s.utNumber.trim().toUpperCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setStudents(deduped);
+      }
+
 
       const sCourses = localStorage.getItem(STORAGE_KEYS.COURSES);
       if (sCourses) setCourses(JSON.parse(sCourses));
