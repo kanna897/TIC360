@@ -1328,37 +1328,86 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     monthly: MonthlyAttendance[],
     newStudents?: Student[]
   ) => {
+    // Step 1: Build a UT→realID map by merging new students into existing ones
+    // We need the final student list first so we can remap marks correctly.
+    const utToIdMap = new Map<string, string>();
+
+    // Start with existing students
+    const existingMap = new Map<string, Student>();
+    students.forEach((s) => {
+      existingMap.set(s.utNumber.toUpperCase(), s);
+      utToIdMap.set(s.utNumber.toUpperCase(), s.id);
+    });
+
+    // Merge in new students
     if (newStudents && newStudents.length > 0) {
-      setStudents((prev) => {
-        const map = new Map<string, Student>();
-        prev.forEach((s) => map.set(s.utNumber.toUpperCase(), s));
-        newStudents.forEach((s) => {
-          if (!map.has(s.utNumber.toUpperCase())) {
-            map.set(s.utNumber.toUpperCase(), s);
-          } else {
-            const existing = map.get(s.utNumber.toUpperCase())!;
-            if (s.group && existing.group !== s.group) {
-              map.set(s.utNumber.toUpperCase(), { ...existing, group: s.group });
-            }
+      newStudents.forEach((s) => {
+        const normUt = s.utNumber.toUpperCase();
+        if (!existingMap.has(normUt)) {
+          existingMap.set(normUt, s);
+          utToIdMap.set(normUt, s.id);
+        } else {
+          const existing = existingMap.get(normUt)!;
+          if (s.group && existing.group !== s.group) {
+            existingMap.set(normUt, { ...existing, group: s.group });
           }
-        });
-        const combined = Array.from(map.values());
-        if (checkIsSupabaseConfigured()) {
-          combined.forEach(s => syncStudent(s));
+          utToIdMap.set(normUt, existing.id);
         }
-        return combined;
       });
     }
 
+    // Commit merged students
+    const mergedStudents = Array.from(existingMap.values());
+    setStudents(mergedStudents);
+    if (checkIsSupabaseConfigured()) {
+      mergedStudents.forEach(s => syncStudent(s));
+    }
+
+    // Step 2: Remap marks from parser IDs to real student IDs
+    // Parser keys marks by "STU-{UT}" and also "{UT}" — we need to re-key by the real stu.id
+    const remappedMarks: Record<string, Record<string, AttendanceMark>> = {};
+    Object.keys(marks).forEach((sessionId) => {
+      remappedMarks[sessionId] = {};
+      const sessionMarks = marks[sessionId];
+      // Deduplicate: parser stores both STU-UT011000 and UT011000 — use utNumber keys
+      const processed = new Set<string>();
+      Object.keys(sessionMarks).forEach((key) => {
+        // Normalize: extract UT number from key
+        let utNum = key.toUpperCase();
+        if (utNum.startsWith('STU-')) utNum = utNum.substring(4);
+        
+        if (processed.has(utNum)) return;
+        processed.add(utNum);
+
+        const realId = utToIdMap.get(utNum);
+        if (realId) {
+          remappedMarks[sessionId][realId] = sessionMarks[key];
+        }
+      });
+    });
+
+    // Step 3: Remap monthly records to use real student IDs
+    const remappedMonthly = monthly.map((m) => {
+      const utNum = (m.utNumber || '').toUpperCase();
+      const realId = utToIdMap.get(utNum);
+      if (realId && realId !== m.studentId) {
+        return { ...m, studentId: realId };
+      }
+      return m;
+    });
+
+    // Step 4: Apply to state
     setAttendanceSessions(sessions);
-    setAttendanceMarks(marks);
-    setMonthlyAttendance(monthly);
+    setAttendanceMarks(remappedMarks);
+    setMonthlyAttendance(remappedMonthly);
+
+    // Step 5: Sync to Supabase
     if (checkIsSupabaseConfigured()) {
       if (sessions.length > 0) syncAttendanceSessions(sessions);
-      Object.keys(marks).forEach((sId) => syncAttendanceMarksForSession(sId, marks[sId]));
-      if (monthly.length > 0) syncMonthlyAttendance(monthly);
+      Object.keys(remappedMarks).forEach((sId) => syncAttendanceMarksForSession(sId, remappedMarks[sId]));
+      if (remappedMonthly.length > 0) syncMonthlyAttendance(remappedMonthly);
     }
-    addAuditLog('Bulk Attendance Import', 'Attendance', 'All', `Imported ${sessions.length} sessions, ${monthly.length} monthly records, and ${newStudents?.length || 0} students`);
+    addAuditLog('Bulk Attendance Import', 'Attendance', 'All', `Imported ${sessions.length} sessions, ${remappedMonthly.length} monthly records, and ${newStudents?.length || 0} students`);
   };
 
   const importGoogleSheetAttendance = (
