@@ -20,6 +20,8 @@ import {
   AlertTriangle,
   UploadCloud,
   ImageIcon,
+  ShieldCheck,
+  Key,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import seedData from '@/lib/attendanceSeed.json';
@@ -40,6 +42,7 @@ import {
   updateCloudinaryCredentials,
   testCloudinaryConnection,
 } from '@/lib/cloudinary';
+import { seedAllSystemAccountsToSupabase, SYSTEM_ACCOUNTS } from '@/lib/auth';
 
 export default function SettingsPage() {
   const {
@@ -89,6 +92,21 @@ export default function SettingsPage() {
   const [copiedSchema, setCopiedSchema] = useState(false);
 
   // Cloudinary connection state
+  const [isSeedingAuth, setIsSeedingAuth] = useState(false);
+  const [seedAuthResult, setSeedAuthResult] = useState<{ total: number; succeeded: number; failed: number; details: string[] } | null>(null);
+
+  const handleSeedAuth = async () => {
+    setIsSeedingAuth(true);
+    try {
+      const res = await seedAllSystemAccountsToSupabase();
+      setSeedAuthResult(res);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSeedingAuth(false);
+    }
+  };
+
   const [cloudName, setCloudName] = useState('');
   const [uploadPreset, setUploadPreset] = useState('');
   const [isTestingCloudinary, setIsTestingCloudinary] = useState(false);
@@ -724,6 +742,87 @@ export default function SettingsPage() {
                       </strong>
                       <span>{exportResult.message}</span>
                     </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 3. Supabase Auth & Users Card */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                      Supabase Auth & Role Accounts
+                    </CardTitle>
+                    <CardDescription>
+                      Manage system user credentials stored securely in Supabase Auth & user_profiles table
+                    </CardDescription>
+                  </div>
+                  <Badge variant={isSupabaseReady ? 'emerald' : 'neutral'}>
+                    {isSupabaseReady ? 'Supabase Auth Ready' : 'Local Fallback'}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-cyan-400" />
+                    Managed System Role Accounts:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    {SYSTEM_ACCOUNTS.map((acc) => (
+                      <div
+                        key={acc.id}
+                        className="p-2 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="font-semibold text-slate-200">{acc.fullName}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">{acc.email}</div>
+                        </div>
+                        <Badge variant="blue">{acc.role}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+                  <strong>Tip:</strong> In your Supabase Dashboard, under{' '}
+                  <span className="font-mono text-white">Authentication → Providers → Email</span>, ensure{' '}
+                  <strong>Confirm email</strong> is toggled <strong>OFF</strong> so accounts can log in immediately.
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={handleSeedAuth}
+                    disabled={isSeedingAuth || !isSupabaseReady}
+                    leftIcon={<RefreshCw className={`w-4 h-4 ${isSeedingAuth ? 'animate-spin' : ''}`} />}
+                  >
+                    {isSeedingAuth ? 'Provisioning Accounts in Supabase...' : 'Seed / Sync System Accounts in Supabase'}
+                  </Button>
+                </div>
+
+                {seedAuthResult && (
+                  <div
+                    className={`p-3.5 rounded-xl border text-xs space-y-1.5 animate-fadeIn ${
+                      seedAuthResult.failed === 0
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                        : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                    }`}
+                  >
+                    <div className="font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      Provisioning Status: {seedAuthResult.succeeded} of {seedAuthResult.total} accounts ready
+                    </div>
+                    <ul className="list-disc pl-5 space-y-0.5 text-[11px] opacity-90">
+                      {seedAuthResult.details.map((d, i) => (
+                        <li key={i}>{d}</li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </CardContent>

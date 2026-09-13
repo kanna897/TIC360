@@ -24,6 +24,7 @@ import {
   ChevronLeft,
   ChevronRight,
   UploadCloud,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { AttendanceSession, AttendanceMark, Student } from '@/lib/types';
@@ -35,6 +36,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { exportToCSV, exportToExcel, formatMonthName } from '@/lib/utils';
 import { FingerprintUploadModal } from '@/components/attendance/FingerprintUploadModal';
+import { BulkAttendanceUploadModal } from '@/components/attendance/BulkAttendanceUploadModal';
 
 export default function AttendancePage() {
   const {
@@ -65,6 +67,7 @@ export default function AttendancePage() {
   const [isAddSessionModalOpen, setIsAddSessionModalOpen] = useState(false);
   const [isEditSessionModalOpen, setIsEditSessionModalOpen] = useState(false);
   const [isFingerprintModalOpen, setIsFingerprintModalOpen] = useState(false);
+  const [isBulkExcelModalOpen, setIsBulkExcelModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<AttendanceSession | null>(null);
 
   // Add Session Form
@@ -340,6 +343,17 @@ export default function AttendancePage() {
             leftIcon={<Plus className="w-4 h-4 text-emerald-400" />}
           >
             ➕ Add Class Session / Date
+          </Button>
+
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={() => setIsBulkExcelModalOpen(true)}
+            leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-200" />}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-md shadow-emerald-950/40 border border-emerald-400/40"
+          >
+            Bulk Upload 6 Months (Excel)
           </Button>
 
           <Button
@@ -1045,6 +1059,12 @@ export default function AttendancePage() {
       <FingerprintUploadModal
         isOpen={isFingerprintModalOpen}
         onClose={() => setIsFingerprintModalOpen(false)}
+      />
+
+      {/* Bulk 6-Month Attendance Excel Upload Modal */}
+      <BulkAttendanceUploadModal
+        isOpen={isBulkExcelModalOpen}
+        onClose={() => setIsBulkExcelModalOpen(false)}
       />
     </div>
   );

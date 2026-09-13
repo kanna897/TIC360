@@ -41,7 +41,7 @@ import {
   initialAttendanceSessions,
   initialDailyAttendanceMarks,
 } from './mockData';
-import { checkIsSupabaseConfigured } from './supabaseClient';
+import { checkIsSupabaseConfigured, supabase } from './supabaseClient';
 import {
   fetchAllFromSupabase,
   syncAllToSupabase,
@@ -66,7 +66,13 @@ import {
   syncAuditLog,
   resetSeedDataInSupabase,
 } from './supabaseSync';
-import { UserAccount, registerStudentAccount, getRegisteredAccounts } from './auth';
+import {
+  UserAccount,
+  registerStudentAccount,
+  getRegisteredAccounts,
+  signOutFromSupabase,
+  registerStudentWithSupabase,
+} from './auth';
 
 interface StoreContextType {
   // State
@@ -143,7 +149,8 @@ interface StoreContextType {
   bulkImportAllAttendance: (
     sessions: AttendanceSession[],
     marks: Record<string, Record<string, AttendanceMark>>,
-    monthly: MonthlyAttendance[]
+    monthly: MonthlyAttendance[],
+    newStudents?: Student[]
   ) => void;
   importGoogleSheetAttendance: (
     month: string,
@@ -335,6 +342,62 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     loadData();
   }, []);
 
+  // Supabase Auth Session Synchronization
+  useEffect(() => {
+    if (!checkIsSupabaseConfigured()) return;
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user && event === 'SIGNED_IN') {
+        const u = session.user;
+        let role = (u.user_metadata?.role as UserRole) || 'Student';
+        let fullName = u.user_metadata?.full_name || u.email?.split('@')[0] || 'User';
+        let department = u.user_metadata?.department || '';
+        let utNumber = u.user_metadata?.ut_number;
+        let studentId = u.user_metadata?.student_id;
+        let avatarUrl = u.user_metadata?.avatar_url;
+
+        try {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', u.id)
+            .maybeSingle();
+
+          if (profile) {
+            role = (profile.role as UserRole) || role;
+            fullName = profile.full_name || fullName;
+            department = profile.department || department;
+            utNumber = profile.ut_number || utNumber;
+            studentId = profile.student_id || studentId;
+            avatarUrl = profile.avatar_url || avatarUrl;
+          }
+        } catch (e) {
+          console.warn('[store] error fetching profile:', e);
+        }
+
+        const userAcc: UserAccount = {
+          id: u.id,
+          email: u.email || '',
+          fullName,
+          role,
+          avatarUrl,
+          department,
+          studentId,
+          utNumber,
+        };
+
+        setCurrentAuthUser(userAcc);
+        setCurrentRole(role);
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentAuthUser(null);
+      }
+    });
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
+
   // Sync state to Supabase (debounced 2s) & localStorage backup
   useEffect(() => {
     if (!isLoaded) return;
@@ -437,6 +500,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logoutUser = () => {
+    signOutFromSupabase();
     setCurrentAuthUser(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
@@ -517,6 +581,21 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     registerStudentAccount(newAccount);
     setCurrentAuthUser(newAccount);
     setCurrentRole('Student');
+
+    // Register in Supabase Auth & user_profiles
+    registerStudentWithSupabase({
+      email: newStudent.email,
+      password: password || 'Student@123',
+      fullName: newStudent.fullName,
+      utNumber,
+      studentId: newId,
+      department: 'Vocational Trainees',
+      avatarUrl: newStudent.photoUrl,
+    }).catch((err) => console.warn('[store] Supabase auth signup failed:', err));
+
+    if (checkIsSupabaseConfigured()) {
+      syncStudent(newStudent);
+    }
 
     addAuditLog(
       'Student Self-Registered',
@@ -1246,8 +1325,31 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const bulkImportAllAttendance = (
     sessions: AttendanceSession[],
     marks: Record<string, Record<string, AttendanceMark>>,
-    monthly: MonthlyAttendance[]
+    monthly: MonthlyAttendance[],
+    newStudents?: Student[]
   ) => {
+    if (newStudents && newStudents.length > 0) {
+      setStudents((prev) => {
+        const map = new Map<string, Student>();
+        prev.forEach((s) => map.set(s.utNumber.toUpperCase(), s));
+        newStudents.forEach((s) => {
+          if (!map.has(s.utNumber.toUpperCase())) {
+            map.set(s.utNumber.toUpperCase(), s);
+          } else {
+            const existing = map.get(s.utNumber.toUpperCase())!;
+            if (s.group && existing.group !== s.group) {
+              map.set(s.utNumber.toUpperCase(), { ...existing, group: s.group });
+            }
+          }
+        });
+        const combined = Array.from(map.values());
+        if (checkIsSupabaseConfigured()) {
+          combined.forEach(s => syncStudent(s));
+        }
+        return combined;
+      });
+    }
+
     setAttendanceSessions(sessions);
     setAttendanceMarks(marks);
     setMonthlyAttendance(monthly);
@@ -1256,6 +1358,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       Object.keys(marks).forEach((sId) => syncAttendanceMarksForSession(sId, marks[sId]));
       if (monthly.length > 0) syncMonthlyAttendance(monthly);
     }
+    addAuditLog('Bulk Attendance Import', 'Attendance', 'All', `Imported ${sessions.length} sessions, ${monthly.length} monthly records, and ${newStudents?.length || 0} students`);
   };
 
   const importGoogleSheetAttendance = (

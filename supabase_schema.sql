@@ -27,6 +27,7 @@ DROP TABLE IF EXISTS batches CASCADE;
 DROP TABLE IF EXISTS courses CASCADE;
 DROP TABLE IF EXISTS audit_logs CASCADE;
 DROP TABLE IF EXISTS system_settings CASCADE;
+DROP TABLE IF EXISTS user_profiles CASCADE;
 
 -- ==============================================================================
 -- STEP 2: CREATE PARENT TABLES
@@ -257,6 +258,20 @@ CREATE TABLE system_settings (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 17. USER PROFILES TABLE (Supabase Auth Profiles)
+CREATE TABLE user_profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'Student',
+    department VARCHAR(100),
+    student_id VARCHAR(100) REFERENCES students(id) ON DELETE SET NULL,
+    ut_number VARCHAR(50),
+    avatar_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ==============================================================================
 -- STEP 5: PERFORMANCE INDEXES
 -- ==============================================================================
@@ -272,10 +287,13 @@ CREATE INDEX idx_attendance_marks_session ON attendance_marks(session_id);
 CREATE INDEX idx_blossom_payments_month ON blossom_payments(month);
 CREATE INDEX idx_outcomes_status ON student_outcomes(outcome_status);
 CREATE INDEX idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
+CREATE INDEX idx_user_profiles_email ON user_profiles(email);
+CREATE INDEX idx_user_profiles_ut_number ON user_profiles(ut_number);
+CREATE INDEX idx_user_profiles_role ON user_profiles(role);
 
 -- ==============================================================================
 -- STEP 6: ROW LEVEL SECURITY (RLS) POLICIES
--- Enables RLS on all 16 tables and allows full read/write access for the app.
+-- Enables RLS on all 17 tables and allows full read/write access for the app.
 -- ==============================================================================
 ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE batches ENABLE ROW LEVEL SECURITY;
@@ -293,6 +311,7 @@ ALTER TABLE course_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_outcomes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 DECLARE
@@ -301,13 +320,146 @@ DECLARE
         'courses', 'batches', 'students', 'student_bank_details', 
         'blossom_applications', 'attendance', 'attendance_sessions', 'attendance_marks',
         'blossom_payments', 'dropouts', 'assessments', 'assessment_marks', 
-        'course_completions', 'student_outcomes', 'audit_logs', 'system_settings'
+        'course_completions', 'student_outcomes', 'audit_logs', 'system_settings', 'user_profiles'
     ];
 BEGIN
     FOREACH t IN ARRAY tables LOOP
         EXECUTE format('DROP POLICY IF EXISTS "Allow full access on %I" ON %I;', t, t);
         EXECUTE format('CREATE POLICY "Allow full access on %I" ON %I FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);', t, t);
     END LOOP;
+END $$;
+
+-- ==============================================================================
+-- STEP 7: AUTOMATIC PROFILE SYNC TRIGGER FOR SUPABASE AUTH
+-- Automatically creates/updates public.user_profiles whenever an auth.users record is created.
+-- ==============================================================================
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.user_profiles (id, email, full_name, role, department, ut_number, student_id)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
+    COALESCE(NEW.raw_user_meta_data->>'role', 'Student'),
+    NEW.raw_user_meta_data->>'department',
+    NEW.raw_user_meta_data->>'ut_number',
+    NEW.raw_user_meta_data->>'student_id'
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    full_name = EXCLUDED.full_name,
+    role = EXCLUDED.role,
+    department = COALESCE(EXCLUDED.department, user_profiles.department),
+    ut_number = COALESCE(EXCLUDED.ut_number, user_profiles.ut_number),
+    student_id = COALESCE(EXCLUDED.student_id, user_profiles.student_id),
+    updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT OR UPDATE ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ==============================================================================
+-- STEP 8: SEED SYSTEM ACCOUNTS IN SUPABASE AUTH & USER_PROFILES
+-- ==============================================================================
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+DO $$
+DECLARE
+    admin_id UUID := 'a0000000-0000-0000-0000-000000000001'::UUID;
+    trustee_id UUID := 'a0000000-0000-0000-0000-000000000002'::UUID;
+    trainer_id UUID := 'a0000000-0000-0000-0000-000000000003'::UUID;
+    data_id UUID := 'a0000000-0000-0000-0000-000000000004'::UUID;
+    demo_student_id UUID := 'a0000000-0000-0000-0000-000000000005'::UUID;
+BEGIN
+    -- 1. Admin
+    IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'admin@unicomtic.lk') THEN
+        INSERT INTO auth.users (
+            instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+            raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000000', admin_id, 'authenticated', 'authenticated',
+            'admin@unicomtic.lk', crypt('Admin@TIC360#2026', gen_salt('bf')), NOW(),
+            '{"provider":"email","providers":["email"]}'::jsonb,
+            '{"full_name":"System Administrator","role":"Admin","department":"Executive Administration"}'::jsonb,
+            NOW(), NOW()
+        );
+        INSERT INTO user_profiles (id, email, full_name, role, department)
+        VALUES (admin_id, 'admin@unicomtic.lk', 'System Administrator', 'Admin', 'Executive Administration')
+        ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role;
+    END IF;
+
+    -- 2. Blossom Trust Officer
+    IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'trustee@blossom.org') THEN
+        INSERT INTO auth.users (
+            instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+            raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000000', trustee_id, 'authenticated', 'authenticated',
+            'trustee@blossom.org', crypt('Trustee@TIC360#2026', gen_salt('bf')), NOW(),
+            '{"provider":"email","providers":["email"]}'::jsonb,
+            '{"full_name":"Blossom Trust Compliance Officer","role":"Blossom Trust Officer","department":"Blossom Trust Foundation"}'::jsonb,
+            NOW(), NOW()
+        );
+        INSERT INTO user_profiles (id, email, full_name, role, department)
+        VALUES (trustee_id, 'trustee@blossom.org', 'Blossom Trust Compliance Officer', 'Blossom Trust Officer', 'Blossom Trust Foundation')
+        ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role;
+    END IF;
+
+    -- 3. Trainer
+    IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'trainer@unicomtic.lk') THEN
+        INSERT INTO auth.users (
+            instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+            raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000000', trainer_id, 'authenticated', 'authenticated',
+            'trainer@unicomtic.lk', crypt('Trainer@TIC360#2026', gen_salt('bf')), NOW(),
+            '{"provider":"email","providers":["email"]}'::jsonb,
+            '{"full_name":"Senior Lead Instructor","role":"Trainer","department":"Academic Faculty"}'::jsonb,
+            NOW(), NOW()
+        );
+        INSERT INTO user_profiles (id, email, full_name, role, department)
+        VALUES (trainer_id, 'trainer@unicomtic.lk', 'Senior Lead Instructor', 'Trainer', 'Academic Faculty')
+        ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role;
+    END IF;
+
+    -- 4. Data Entry Officer
+    IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'dataentry@unicomtic.lk') THEN
+        INSERT INTO auth.users (
+            instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+            raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000000', data_id, 'authenticated', 'authenticated',
+            'dataentry@unicomtic.lk', crypt('Data@TIC360#2026', gen_salt('bf')), NOW(),
+            '{"provider":"email","providers":["email"]}'::jsonb,
+            '{"full_name":"Data Entry Officer","role":"Data Entry Officer","department":"Operations & Admissions"}'::jsonb,
+            NOW(), NOW()
+        );
+        INSERT INTO user_profiles (id, email, full_name, role, department)
+        VALUES (data_id, 'dataentry@unicomtic.lk', 'Data Entry Officer', 'Data Entry Officer', 'Operations & Admissions')
+        ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role;
+    END IF;
+
+    -- 5. Student Demo
+    IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'student@unicomtic.lk') THEN
+        INSERT INTO auth.users (
+            instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+            raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000000', demo_student_id, 'authenticated', 'authenticated',
+            'student@unicomtic.lk', crypt('Student@TIC360#2026', gen_salt('bf')), NOW(),
+            '{"provider":"email","providers":["email"]}'::jsonb,
+            '{"full_name":"Priya Sundaramoorthy (Demo)","role":"Student","department":"Vocational Trainees","ut_number":"UT-2026-001"}'::jsonb,
+            NOW(), NOW()
+        );
+        INSERT INTO user_profiles (id, email, full_name, role, department, ut_number)
+        VALUES (demo_student_id, 'student@unicomtic.lk', 'Priya Sundaramoorthy (Demo)', 'Student', 'Vocational Trainees', 'UT-2026-001')
+        ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role;
+    END IF;
 END $$;
 
 COMMIT;

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { Button } from '@/components/ui/Button';
-import { SYSTEM_ACCOUNTS, authenticateUser, UserAccount, getRegisteredAccounts } from '@/lib/auth';
+import { SYSTEM_ACCOUNTS, authenticateUser, signInWithSupabase, UserAccount, getRegisteredAccounts } from '@/lib/auth';
 
 function LoginForm() {
   const router = useRouter();
@@ -34,6 +34,7 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [registeredAccounts, setRegisteredAccounts] = useState<UserAccount[]>([]);
 
   useEffect(() => {
@@ -66,28 +67,36 @@ function LoginForm() {
     }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+    setIsLoading(true);
 
-    const res = authenticateUser(identifier, password, students);
-    if (!res.success || !res.user) {
-      setErrorMsg(res.error || 'Authentication failed');
-      return;
-    }
-
-    // Set role and current authenticated user in store and localStorage
-    setCurrentRole(res.user.role);
-    setCurrentAuthUser(res.user);
-
-    setIsSuccess(true);
-    setTimeout(() => {
-      if (res.user?.role === 'Student') {
-        router.push('/portal');
-      } else {
-        router.push('/');
+    try {
+      const res = await signInWithSupabase(identifier, password, students);
+      if (!res.success || !res.user) {
+        setErrorMsg(res.error || 'Authentication failed');
+        setIsLoading(false);
+        return;
       }
-    }, 700);
+
+      // Set role and current authenticated user in store and localStorage
+      setCurrentRole(res.user.role);
+      setCurrentAuthUser(res.user);
+
+      setIsSuccess(true);
+      setTimeout(() => {
+        if (res.user?.role === 'Student') {
+          router.push('/portal');
+        } else {
+          router.push('/');
+        }
+      }, 700);
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('An error occurred during authentication.');
+      setIsLoading(false);
+    }
   };
 
   const handleQuickFill = (account: { identifier: string; pass: string }) => {
@@ -245,10 +254,22 @@ function LoginForm() {
               type="submit"
               variant="primary"
               className="w-full justify-center py-2.5 text-xs font-bold"
-              disabled={isSuccess}
-              rightIcon={<ArrowRight className="w-4 h-4" />}
+              disabled={isSuccess || isLoading}
+              rightIcon={
+                isLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <ArrowRight className="w-4 h-4" />
+                )
+              }
             >
-              {isSuccess ? 'Signing In...' : activeTab === 'student' ? 'Enter Student Portal' : 'Sign In as Staff'}
+              {isLoading
+                ? 'Verifying with Supabase...'
+                : isSuccess
+                ? 'Signing In...'
+                : activeTab === 'student'
+                ? 'Enter Student Portal'
+                : 'Sign In as Staff'}
             </Button>
           </form>
 
@@ -269,7 +290,7 @@ function LoginForm() {
                   <button
                     key={acc.id}
                     type="button"
-                    onClick={() => handleQuickFill({ identifier: acc.utNumber || acc.email, pass: acc.password })}
+                    onClick={() => handleQuickFill({ identifier: acc.utNumber || acc.email, pass: acc.password || 'Student@123' })}
                     className={`p-2 rounded-xl text-left border transition-all flex flex-col justify-between ${
                       identifier === acc.utNumber || identifier === acc.email
                         ? 'bg-blue-600/20 border-blue-500 text-white'
@@ -314,7 +335,7 @@ function LoginForm() {
                   <button
                     key={acc.id}
                     type="button"
-                    onClick={() => handleQuickFill({ identifier: acc.email, pass: acc.password })}
+                    onClick={() => handleQuickFill({ identifier: acc.email, pass: acc.password || '' })}
                     className={`p-2 rounded-xl text-left border transition-all flex flex-col justify-between ${
                       identifier === acc.email
                         ? 'bg-blue-600/20 border-blue-500 text-white'
