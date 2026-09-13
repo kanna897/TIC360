@@ -1,14 +1,40 @@
 -- ==============================================================================
--- TIC360: Student Management & Outcome Reporting Platform Schema for Supabase PostgreSQL
+-- TIC360: Clean/Fresh Database Setup for Supabase PostgreSQL
 -- Organization: Unicom TIC Training Centre & Blossom Trust Educational Foundation
+-- Description: Resets ONLY the 16 TIC360 application tables and creates them
+--              with VARCHAR(100) primary and foreign keys matching the frontend data model.
 -- ==============================================================================
 
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+BEGIN;
+
+-- ==============================================================================
+-- STEP 1: DROP EXISTING TIC360 TABLES (CHILDREN FIRST, THEN PARENTS)
+-- Only drops the 16 application-specific tables. Does not touch any system tables.
+-- ==============================================================================
+DROP TABLE IF EXISTS attendance_marks CASCADE;
+DROP TABLE IF EXISTS attendance_sessions CASCADE;
+DROP TABLE IF EXISTS assessment_marks CASCADE;
+DROP TABLE IF EXISTS assessments CASCADE;
+DROP TABLE IF EXISTS student_outcomes CASCADE;
+DROP TABLE IF EXISTS course_completions CASCADE;
+DROP TABLE IF EXISTS dropouts CASCADE;
+DROP TABLE IF EXISTS blossom_payments CASCADE;
+DROP TABLE IF EXISTS attendance CASCADE;
+DROP TABLE IF EXISTS blossom_applications CASCADE;
+DROP TABLE IF EXISTS student_bank_details CASCADE;
+DROP TABLE IF EXISTS students CASCADE;
+DROP TABLE IF EXISTS batches CASCADE;
+DROP TABLE IF EXISTS courses CASCADE;
+DROP TABLE IF EXISTS audit_logs CASCADE;
+DROP TABLE IF EXISTS system_settings CASCADE;
+
+-- ==============================================================================
+-- STEP 2: CREATE PARENT TABLES
+-- ==============================================================================
 
 -- 1. COURSES TABLE
-CREATE TABLE IF NOT EXISTS courses (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+CREATE TABLE courses (
+    id VARCHAR(100) PRIMARY KEY,
     code VARCHAR(50) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -19,45 +45,49 @@ CREATE TABLE IF NOT EXISTS courses (
 );
 
 -- 2. BATCHES TABLE
-CREATE TABLE IF NOT EXISTS batches (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+CREATE TABLE batches (
+    id VARCHAR(100) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    course_id VARCHAR(100) REFERENCES courses(id) ON DELETE CASCADE,
     start_date DATE NOT NULL,
     end_date DATE,
-    status VARCHAR(50) DEFAULT 'Active' CHECK (status IN ('Active', 'Completed', 'Upcoming')),
+    status VARCHAR(50) DEFAULT 'Active',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 3. STUDENTS TABLE
-CREATE TABLE IF NOT EXISTS students (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+CREATE TABLE students (
+    id VARCHAR(100) PRIMARY KEY,
     ut_number VARCHAR(50) UNIQUE NOT NULL,
     full_name VARCHAR(255) NOT NULL,
-    nic VARCHAR(50) UNIQUE NOT NULL,
-    dob DATE NOT NULL,
-    gender VARCHAR(20) CHECK (gender IN ('Male', 'Female', 'Other')),
-    phone VARCHAR(30) NOT NULL,
+    nic VARCHAR(50),
+    dob DATE,
+    gender VARCHAR(20),
+    phone VARCHAR(30),
     whatsapp VARCHAR(30),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    address TEXT NOT NULL,
-    district VARCHAR(100) NOT NULL,
+    email VARCHAR(255),
+    address TEXT,
+    district VARCHAR(100),
     emergency_contact_name VARCHAR(255),
     emergency_contact_phone VARCHAR(30),
     emergency_contact_relationship VARCHAR(100),
-    batch_id UUID REFERENCES batches(id),
-    course_id UUID REFERENCES courses(id),
+    batch_id VARCHAR(100) REFERENCES batches(id) ON DELETE SET NULL,
+    course_id VARCHAR(100) REFERENCES courses(id) ON DELETE SET NULL,
     photo_url TEXT,
     is_blossom_trust BOOLEAN DEFAULT FALSE,
-    current_status VARCHAR(50) DEFAULT 'Active' CHECK (current_status IN ('Active', 'Completed', 'Dropout', 'Other')),
+    current_status VARCHAR(50) DEFAULT 'Active',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. STUDENT BANK DETAILS TABLE (Blossom Trust Students only)
-CREATE TABLE IF NOT EXISTS student_bank_details (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    student_id UUID UNIQUE REFERENCES students(id) ON DELETE CASCADE,
+-- ==============================================================================
+-- STEP 3: CREATE CHILD TABLES (STUDENT & ACADEMIC MODULES)
+-- ==============================================================================
+
+-- 4. STUDENT BANK DETAILS TABLE (Blossom Trust Students)
+CREATE TABLE student_bank_details (
+    id VARCHAR(100) PRIMARY KEY DEFAULT ('BNK-' || substr(md5(random()::text), 1, 16)),
+    student_id VARCHAR(100) UNIQUE REFERENCES students(id) ON DELETE CASCADE,
     bank_name VARCHAR(150) NOT NULL,
     branch_name VARCHAR(150) NOT NULL,
     branch_code VARCHAR(50),
@@ -69,9 +99,9 @@ CREATE TABLE IF NOT EXISTS student_bank_details (
 );
 
 -- 5. BLOSSOM APPLICATIONS TABLE
-CREATE TABLE IF NOT EXISTS blossom_applications (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    student_id UUID UNIQUE REFERENCES students(id) ON DELETE CASCADE,
+CREATE TABLE blossom_applications (
+    id VARCHAR(100) PRIMARY KEY DEFAULT ('APP-' || substr(md5(random()::text), 1, 16)),
+    student_id VARCHAR(100) UNIQUE REFERENCES students(id) ON DELETE CASCADE,
     parents_occupation TEXT,
     family_income NUMERIC(12, 2),
     family_members_count INT,
@@ -81,38 +111,62 @@ CREATE TABLE IF NOT EXISTS blossom_applications (
     food_expense NUMERIC(12, 2) DEFAULT 0,
     supporting_docs JSONB,
     declaration_signed BOOLEAN DEFAULT TRUE,
-    verification_status VARCHAR(50) DEFAULT 'Pending' CHECK (verification_status IN ('Pending', 'Verified', 'Rejected')),
-    verified_by UUID,
+    verification_status VARCHAR(50) DEFAULT 'Pending',
+    verified_by VARCHAR(100),
     verified_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. MONTHLY ATTENDANCE TABLE (Preserved month-by-month historically)
-CREATE TABLE IF NOT EXISTS attendance (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
-    batch_id UUID REFERENCES batches(id),
+-- 6. MONTHLY ATTENDANCE TABLE (Preserved month-by-month historical summaries)
+CREATE TABLE attendance (
+    id VARCHAR(100) PRIMARY KEY,
+    student_id VARCHAR(100) REFERENCES students(id) ON DELETE CASCADE,
+    batch_id VARCHAR(100) REFERENCES batches(id) ON DELETE SET NULL,
     year INT NOT NULL,
     month VARCHAR(20) NOT NULL, -- Format: 'YYYY-MM' e.g. '2026-08'
-    attendance_percentage NUMERIC(5, 2) NOT NULL CHECK (attendance_percentage >= 0 AND attendance_percentage <= 100),
-    status VARCHAR(50) NOT NULL CHECK (status IN ('Good Attendance', 'Low Attendance', 'Critical Attendance')),
+    attendance_percentage NUMERIC(5, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL,
     recorded_by VARCHAR(150),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT unique_student_month_attendance UNIQUE (student_id, month)
 );
 
--- 7. BLOSSOM MONTHLY PAYMENTS TABLE
-CREATE TABLE IF NOT EXISTS blossom_payments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+-- 7. ATTENDANCE SESSIONS TABLE (Daily classroom sessions)
+CREATE TABLE attendance_sessions (
+    id VARCHAR(100) PRIMARY KEY,
+    batch_id VARCHAR(100) REFERENCES batches(id) ON DELETE CASCADE,
+    "group" VARCHAR(50),
+    month VARCHAR(20) NOT NULL,
+    date DATE NOT NULL,
+    display_date VARCHAR(50),
+    subject VARCHAR(255),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. ATTENDANCE MARKS TABLE (Individual student marks per daily session)
+CREATE TABLE attendance_marks (
+    id VARCHAR(100) PRIMARY KEY,
+    session_id VARCHAR(100) REFERENCES attendance_sessions(id) ON DELETE CASCADE,
+    student_id VARCHAR(100) REFERENCES students(id) ON DELETE CASCADE,
+    mark VARCHAR(10) NOT NULL CHECK (mark IN ('P', 'A', 'L')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT unique_session_student_mark UNIQUE (session_id, student_id)
+);
+
+-- 9. BLOSSOM MONTHLY PAYMENTS TABLE
+CREATE TABLE blossom_payments (
+    id VARCHAR(100) PRIMARY KEY,
+    student_id VARCHAR(100) REFERENCES students(id) ON DELETE CASCADE,
     year INT NOT NULL,
-    month VARCHAR(20) NOT NULL, -- 'YYYY-MM'
+    month VARCHAR(20) NOT NULL, -- Format: 'YYYY-MM'
     attendance_percentage NUMERIC(5, 2),
     is_eligible BOOLEAN NOT NULL DEFAULT FALSE,
     ineligibility_reason TEXT,
     amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
-    status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Eligible', 'Not Eligible', 'Paid', 'Pending')),
+    status VARCHAR(50) DEFAULT 'Pending',
     payment_date DATE,
     reference_no VARCHAR(100),
     notes TEXT,
@@ -120,77 +174,59 @@ CREATE TABLE IF NOT EXISTS blossom_payments (
     CONSTRAINT unique_student_month_payment UNIQUE (student_id, month)
 );
 
--- 8. DROPOUTS TABLE
-CREATE TABLE IF NOT EXISTS dropouts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    student_id UUID UNIQUE REFERENCES students(id) ON DELETE CASCADE,
-    dropout_month VARCHAR(20) NOT NULL, -- 'YYYY-MM'
-    reason VARCHAR(100) NOT NULL CHECK (reason IN (
-        'Financial Problem',
-        'Employment',
-        'Higher Studies',
-        'Family Problem',
-        'Health/Personal',
-        'Migration',
-        'Lack of Interest',
-        'Unknown'
-    )),
-    rejoin_possibility VARCHAR(50) DEFAULT 'Unknown' CHECK (rejoin_possibility IN ('High', 'Medium', 'Low', 'No', 'Unknown')),
+-- 10. DROPOUTS TABLE
+CREATE TABLE dropouts (
+    id VARCHAR(100) PRIMARY KEY,
+    student_id VARCHAR(100) REFERENCES students(id) ON DELETE CASCADE,
+    dropout_month VARCHAR(20) NOT NULL, -- Format: 'YYYY-MM'
+    reason VARCHAR(100) NOT NULL,
+    rejoin_possibility VARCHAR(50) DEFAULT 'Unknown',
     remarks TEXT,
     recorded_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 9. ASSESSMENTS TABLE (Custom columns with max marks)
-CREATE TABLE IF NOT EXISTS assessments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
-    batch_id UUID REFERENCES batches(id),
+-- 11. ASSESSMENTS TABLE (Assignments, Projects, Exams)
+CREATE TABLE assessments (
+    id VARCHAR(100) PRIMARY KEY,
+    course_id VARCHAR(100) REFERENCES courses(id) ON DELETE CASCADE,
+    batch_id VARCHAR(100) REFERENCES batches(id) ON DELETE SET NULL,
     title VARCHAR(150) NOT NULL,
-    category VARCHAR(50) DEFAULT 'Assignment' CHECK (category IN ('Assignment', 'Project', 'Presentation', 'Practical', 'Final Project', 'Custom')),
+    category VARCHAR(50) DEFAULT 'Assignment',
     max_marks NUMERIC(5, 2) NOT NULL DEFAULT 100,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 10. ASSESSMENT MARKS TABLE
-CREATE TABLE IF NOT EXISTS assessment_marks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    assessment_id UUID REFERENCES assessments(id) ON DELETE CASCADE,
-    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+-- 12. ASSESSMENT MARKS TABLE
+CREATE TABLE assessment_marks (
+    id VARCHAR(100) PRIMARY KEY,
+    assessment_id VARCHAR(100) REFERENCES assessments(id) ON DELETE CASCADE,
+    student_id VARCHAR(100) REFERENCES students(id) ON DELETE CASCADE,
     marks_obtained NUMERIC(5, 2) NOT NULL CHECK (marks_obtained >= 0),
     feedback TEXT,
     graded_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT unique_assessment_student_mark UNIQUE (assessment_id, student_id)
 );
 
--- 11. COURSE COMPLETIONS TABLE
-CREATE TABLE IF NOT EXISTS course_completions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    student_id UUID UNIQUE REFERENCES students(id) ON DELETE CASCADE,
-    course_id UUID REFERENCES courses(id),
-    batch_id UUID REFERENCES batches(id),
+-- 13. COURSE COMPLETIONS TABLE
+CREATE TABLE course_completions (
+    id VARCHAR(100) PRIMARY KEY,
+    student_id VARCHAR(100) UNIQUE REFERENCES students(id) ON DELETE CASCADE,
+    course_id VARCHAR(100) REFERENCES courses(id) ON DELETE SET NULL,
+    batch_id VARCHAR(100) REFERENCES batches(id) ON DELETE SET NULL,
     completion_date DATE NOT NULL,
     final_result VARCHAR(50) DEFAULT 'Passed',
     final_project_name VARCHAR(255),
     github_link TEXT,
-    overall_grade VARCHAR(10) CHECK (overall_grade IN ('A', 'B', 'C', 'D', 'E')),
+    overall_grade VARCHAR(10),
     certificate_issued BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 12. STUDENT OUTCOMES TABLE (Post-completion tracking)
-CREATE TABLE IF NOT EXISTS student_outcomes (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
-    outcome_status VARCHAR(50) NOT NULL CHECK (outcome_status IN (
-        'Employed',
-        'Self Employed',
-        'Higher Studies',
-        'Internship',
-        'Looking for Job',
-        'Unemployed',
-        'Foreign Employment',
-        'Other'
-    )),
+-- 14. STUDENT OUTCOMES TABLE (Employment, Higher Education Tracking)
+CREATE TABLE student_outcomes (
+    id VARCHAR(100) PRIMARY KEY,
+    student_id VARCHAR(100) UNIQUE REFERENCES students(id) ON DELETE CASCADE,
+    outcome_status VARCHAR(50) NOT NULL,
     outcome_date DATE NOT NULL,
     company_or_institution VARCHAR(255),
     job_title VARCHAR(150),
@@ -198,9 +234,13 @@ CREATE TABLE IF NOT EXISTS student_outcomes (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 13. AUDIT LOGS TABLE
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- ==============================================================================
+-- STEP 4: CREATE SYSTEM & AUDIT TABLES
+-- ==============================================================================
+
+-- 15. AUDIT LOGS TABLE
+CREATE TABLE audit_logs (
+    id VARCHAR(100) PRIMARY KEY,
     user_name VARCHAR(150) NOT NULL,
     user_role VARCHAR(50) NOT NULL,
     action VARCHAR(100) NOT NULL,
@@ -210,28 +250,32 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 14. SYSTEM SETTINGS TABLE
-CREATE TABLE IF NOT EXISTS system_settings (
+-- 16. SYSTEM SETTINGS TABLE
+CREATE TABLE system_settings (
     key VARCHAR(100) PRIMARY KEY,
     value JSONB NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ==============================================================================
--- INDEXES FOR MAXIMUM QUERY PERFORMANCE
+-- STEP 5: PERFORMANCE INDEXES
 -- ==============================================================================
-CREATE INDEX IF NOT EXISTS idx_students_course_id ON students(course_id);
-CREATE INDEX IF NOT EXISTS idx_students_batch_id ON students(batch_id);
-CREATE INDEX IF NOT EXISTS idx_students_is_blossom ON students(is_blossom_trust);
-CREATE INDEX IF NOT EXISTS idx_students_current_status ON students(current_status);
-CREATE INDEX IF NOT EXISTS idx_attendance_month ON attendance(month);
-CREATE INDEX IF NOT EXISTS idx_blossom_payments_month ON blossom_payments(month);
-CREATE INDEX IF NOT EXISTS idx_outcomes_status ON student_outcomes(outcome_status);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
+CREATE INDEX idx_students_ut_number ON students(ut_number);
+CREATE INDEX idx_students_course_id ON students(course_id);
+CREATE INDEX idx_students_batch_id ON students(batch_id);
+CREATE INDEX idx_students_is_blossom ON students(is_blossom_trust);
+CREATE INDEX idx_students_current_status ON students(current_status);
+CREATE INDEX idx_attendance_month ON attendance(month);
+CREATE INDEX idx_attendance_sessions_date ON attendance_sessions(date);
+CREATE INDEX idx_attendance_sessions_batch ON attendance_sessions(batch_id);
+CREATE INDEX idx_attendance_marks_session ON attendance_marks(session_id);
+CREATE INDEX idx_blossom_payments_month ON blossom_payments(month);
+CREATE INDEX idx_outcomes_status ON student_outcomes(outcome_status);
+CREATE INDEX idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
 
 -- ==============================================================================
--- ROW LEVEL SECURITY (RLS) POLICIES
--- Permissive policies for anon and authenticated roles for full MIS functionality
+-- STEP 6: ROW LEVEL SECURITY (RLS) POLICIES
+-- Enables RLS on all 16 tables and allows full read/write access for the app.
 -- ==============================================================================
 ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE batches ENABLE ROW LEVEL SECURITY;
@@ -239,6 +283,8 @@ ALTER TABLE students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_bank_details ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blossom_applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance_marks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blossom_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dropouts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assessments ENABLE ROW LEVEL SECURITY;
@@ -248,14 +294,13 @@ ALTER TABLE student_outcomes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 
--- Allow full access to all tables for application operations
 DO $$ 
 DECLARE
     t text;
     tables text[] := ARRAY[
         'courses', 'batches', 'students', 'student_bank_details', 
-        'blossom_applications', 'attendance', 'blossom_payments', 
-        'dropouts', 'assessments', 'assessment_marks', 
+        'blossom_applications', 'attendance', 'attendance_sessions', 'attendance_marks',
+        'blossom_payments', 'dropouts', 'assessments', 'assessment_marks', 
         'course_completions', 'student_outcomes', 'audit_logs', 'system_settings'
     ];
 BEGIN
@@ -264,3 +309,5 @@ BEGIN
         EXECUTE format('CREATE POLICY "Allow full access on %I" ON %I FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);', t, t);
     END LOOP;
 END $$;
+
+COMMIT;

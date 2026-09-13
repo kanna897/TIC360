@@ -41,7 +41,30 @@ import {
   initialAttendanceSessions,
   initialDailyAttendanceMarks,
 } from './mockData';
-import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { checkIsSupabaseConfigured } from './supabaseClient';
+import {
+  fetchAllFromSupabase,
+  syncAllToSupabase,
+  syncStudent,
+  syncDeleteStudent,
+  syncAttendanceSessions,
+  syncDeleteAttendanceSession,
+  syncAttendanceMark,
+  syncAttendanceMarksForSession,
+  syncMonthlyAttendance,
+  syncPayment,
+  syncPayments,
+  syncDropout,
+  syncAssessment,
+  syncDeleteAssessment,
+  syncAssessmentMarks,
+  syncCompletion,
+  syncOutcome,
+  syncCourse,
+  syncBatch,
+  syncSettings,
+  syncAuditLog,
+} from './supabaseSync';
 import { UserAccount, registerStudentAccount, getRegisteredAccounts } from './auth';
 
 interface StoreContextType {
@@ -225,103 +248,97 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [currentAuthUser, setCurrentAuthUser] = useState<UserAccount | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
-  // Load state from localStorage on startup
+  // Load state from Supabase on startup (fallback to localStorage if offline/not configured)
   useEffect(() => {
-    try {
-      const sStudents = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-      if (sStudents) {
-        const parsed: Student[] = JSON.parse(sStudents);
-        // Deduplicate by utNumber — keep only the first occurrence of each UT number
-        const seen = new Set<string>();
-        const deduped = parsed.filter((s) => {
-          const key = s.utNumber.trim().toUpperCase();
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-        setStudents(deduped);
+    const loadData = async () => {
+      try {
+        if (!checkIsSupabaseConfigured()) {
+          const sStudents = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+          if (sStudents) {
+            const parsed: Student[] = JSON.parse(sStudents);
+            const seen = new Set<string>();
+            const deduped = parsed.filter((s: Student) => {
+              const key = s.utNumber.trim().toUpperCase();
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+            setStudents(deduped);
+          }
+          const sCourses = localStorage.getItem(STORAGE_KEYS.COURSES);
+          if (sCourses) setCourses(JSON.parse(sCourses));
+          const sBatches = localStorage.getItem(STORAGE_KEYS.BATCHES);
+          if (sBatches) setBatches(JSON.parse(sBatches));
+          const sAtt = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
+          if (sAtt) setMonthlyAttendance(JSON.parse(sAtt));
+          const sSessions = localStorage.getItem(STORAGE_KEYS.ATT_SESSIONS);
+          if (sSessions) setAttendanceSessions(JSON.parse(sSessions));
+          const sMarks = localStorage.getItem(STORAGE_KEYS.ATT_MARKS);
+          if (sMarks) setAttendanceMarks(JSON.parse(sMarks));
+          const sLogs = localStorage.getItem(STORAGE_KEYS.DAILY_LOGS);
+          if (sLogs) setDailyTimeLogs(JSON.parse(sLogs));
+          const sPay = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
+          if (sPay) setBlossomPayments(JSON.parse(sPay));
+          const sDropouts = localStorage.getItem(STORAGE_KEYS.DROPOUTS);
+          if (sDropouts) setDropouts(JSON.parse(sDropouts));
+          const sAssessments = localStorage.getItem(STORAGE_KEYS.ASSESSMENTS);
+          if (sAssessments) setAssessments(JSON.parse(sAssessments));
+          const sAssMarks = localStorage.getItem(STORAGE_KEYS.ASSESSMENT_MARKS);
+          if (sAssMarks) setAssessmentMarks(JSON.parse(sAssMarks));
+          const sCompletions = localStorage.getItem(STORAGE_KEYS.COMPLETIONS);
+          if (sCompletions) setCompletions(JSON.parse(sCompletions));
+          const sOutcomes = localStorage.getItem(STORAGE_KEYS.OUTCOMES);
+          if (sOutcomes) setOutcomes(JSON.parse(sOutcomes));
+          const sAudit = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
+          if (sAudit) setAuditLogs(JSON.parse(sAudit));
+          const sOrg = localStorage.getItem(STORAGE_KEYS.ORG_PROFILE);
+          if (sOrg) setOrgProfile(JSON.parse(sOrg));
+          const sSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+          if (sSettings) setSettings(JSON.parse(sSettings));
+          return;
+        }
+
+        // Load from Supabase
+        const data = await fetchAllFromSupabase();
+        if (data.students?.length) setStudents(data.students);
+        if (data.courses?.length) setCourses(data.courses);
+        if (data.batches?.length) setBatches(data.batches);
+        if (data.monthlyAttendance?.length) setMonthlyAttendance(data.monthlyAttendance);
+        if (data.attendanceSessions?.length) setAttendanceSessions(data.attendanceSessions);
+        if (data.attendanceMarks && Object.keys(data.attendanceMarks).length) setAttendanceMarks(data.attendanceMarks);
+        if (data.blossomPayments?.length) setBlossomPayments(data.blossomPayments);
+        if (data.dropouts?.length) setDropouts(data.dropouts);
+        if (data.assessments?.length) setAssessments(data.assessments);
+        if (data.assessmentMarks?.length) setAssessmentMarks(data.assessmentMarks);
+        if (data.completions?.length) setCompletions(data.completions);
+        if (data.outcomes?.length) setOutcomes(data.outcomes);
+        if (data.auditLogs?.length) setAuditLogs(data.auditLogs);
+        if (data.settings) setSettings(data.settings);
+      } catch (e) {
+        console.error('Error loading data from Supabase:', e);
+      } finally {
+        // UI preferences always from localStorage
+        try {
+          const sRole = localStorage.getItem(STORAGE_KEYS.ROLE);
+          if (sRole) setCurrentRole(sRole as UserRole);
+          const sUser = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
+          if (sUser) setCurrentAuthUser(JSON.parse(sUser));
+          const sTheme = localStorage.getItem(STORAGE_KEYS.THEME);
+          if (sTheme) setTheme(sTheme as 'dark' | 'light');
+        } catch (e) {
+          console.error('Error loading local preferences:', e);
+        }
+        setIsLoaded(true);
       }
-
-
-      const sCourses = localStorage.getItem(STORAGE_KEYS.COURSES);
-      if (sCourses) setCourses(JSON.parse(sCourses));
-
-      const sBatches = localStorage.getItem(STORAGE_KEYS.BATCHES);
-      if (sBatches) setBatches(JSON.parse(sBatches));
-
-      const sAtt = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
-      if (sAtt) setMonthlyAttendance(JSON.parse(sAtt));
-
-      const sSessions = localStorage.getItem(STORAGE_KEYS.ATT_SESSIONS);
-      if (sSessions) setAttendanceSessions(JSON.parse(sSessions));
-
-      const sMarks = localStorage.getItem(STORAGE_KEYS.ATT_MARKS);
-      if (sMarks) setAttendanceMarks(JSON.parse(sMarks));
-
-      const sLogs = localStorage.getItem(STORAGE_KEYS.DAILY_LOGS);
-      if (sLogs) setDailyTimeLogs(JSON.parse(sLogs));
-
-      const sPay = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
-      if (sPay) setBlossomPayments(JSON.parse(sPay));
-
-      const sDrp = localStorage.getItem(STORAGE_KEYS.DROPOUTS);
-      if (sDrp) setDropouts(JSON.parse(sDrp));
-
-      const sAsm = localStorage.getItem(STORAGE_KEYS.ASSESSMENTS);
-      if (sAsm) setAssessments(JSON.parse(sAsm));
-
-      const sMrk = localStorage.getItem(STORAGE_KEYS.ASSESSMENT_MARKS);
-      if (sMrk) setAssessmentMarks(JSON.parse(sMrk));
-
-      const sCmp = localStorage.getItem(STORAGE_KEYS.COMPLETIONS);
-      if (sCmp) setCompletions(JSON.parse(sCmp));
-
-      const sOut = localStorage.getItem(STORAGE_KEYS.OUTCOMES);
-      if (sOut) setOutcomes(JSON.parse(sOut));
-
-      const sAudit = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
-      if (sAudit) setAuditLogs(JSON.parse(sAudit));
-
-      const sProfile = localStorage.getItem(STORAGE_KEYS.ORG_PROFILE);
-      if (sProfile) setOrgProfile(JSON.parse(sProfile));
-
-      const sSet = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-      if (sSet) setSettings(JSON.parse(sSet));
-
-      const sRole = localStorage.getItem(STORAGE_KEYS.ROLE) as UserRole | null;
-      if (sRole) setCurrentRole(sRole);
-
-      const sUser = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
-      if (sUser) setCurrentAuthUser(JSON.parse(sUser));
-
-      const sTheme = localStorage.getItem(STORAGE_KEYS.THEME) as 'dark' | 'light' | null;
-      if (sTheme) setTheme(sTheme);
-    } catch (e) {
-      console.error('Error loading TIC360 local state', e);
-    } finally {
-      setIsLoaded(true);
-    }
+    };
+    loadData();
   }, []);
 
-  // Sync state to localStorage
+  // Sync state to Supabase (debounced 2s) & localStorage backup
   useEffect(() => {
     if (!isLoaded) return;
-    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
-    localStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(courses));
-    localStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(batches));
-    localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(monthlyAttendance));
-    localStorage.setItem(STORAGE_KEYS.ATT_SESSIONS, JSON.stringify(attendanceSessions));
-    localStorage.setItem(STORAGE_KEYS.ATT_MARKS, JSON.stringify(attendanceMarks));
-    localStorage.setItem(STORAGE_KEYS.DAILY_LOGS, JSON.stringify(dailyTimeLogs));
-    localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(blossomPayments));
-    localStorage.setItem(STORAGE_KEYS.DROPOUTS, JSON.stringify(dropouts));
-    localStorage.setItem(STORAGE_KEYS.ASSESSMENTS, JSON.stringify(assessments));
-    localStorage.setItem(STORAGE_KEYS.ASSESSMENT_MARKS, JSON.stringify(assessmentMarks));
-    localStorage.setItem(STORAGE_KEYS.COMPLETIONS, JSON.stringify(completions));
-    localStorage.setItem(STORAGE_KEYS.OUTCOMES, JSON.stringify(outcomes));
-    localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(auditLogs));
-    localStorage.setItem(STORAGE_KEYS.ORG_PROFILE, JSON.stringify(orgProfile));
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+
+    // UI preferences always go to localStorage
     localStorage.setItem(STORAGE_KEYS.ROLE, currentRole);
     if (currentAuthUser) {
       localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(currentAuthUser));
@@ -329,6 +346,45 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
     }
     localStorage.setItem(STORAGE_KEYS.THEME, theme);
+
+    if (checkIsSupabaseConfigured()) {
+      const timer = setTimeout(() => {
+        syncAllToSupabase({
+          students,
+          courses,
+          batches,
+          monthlyAttendance,
+          attendanceSessions,
+          attendanceMarks,
+          blossomPayments,
+          dropouts,
+          assessments,
+          assessmentMarks,
+          completions,
+          outcomes,
+          auditLogs,
+          settings,
+        });
+      }, 2000);
+      return () => clearTimeout(timer);
+    } else {
+      localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+      localStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(courses));
+      localStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(batches));
+      localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(monthlyAttendance));
+      localStorage.setItem(STORAGE_KEYS.ATT_SESSIONS, JSON.stringify(attendanceSessions));
+      localStorage.setItem(STORAGE_KEYS.ATT_MARKS, JSON.stringify(attendanceMarks));
+      localStorage.setItem(STORAGE_KEYS.DAILY_LOGS, JSON.stringify(dailyTimeLogs));
+      localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(blossomPayments));
+      localStorage.setItem(STORAGE_KEYS.DROPOUTS, JSON.stringify(dropouts));
+      localStorage.setItem(STORAGE_KEYS.ASSESSMENTS, JSON.stringify(assessments));
+      localStorage.setItem(STORAGE_KEYS.ASSESSMENT_MARKS, JSON.stringify(assessmentMarks));
+      localStorage.setItem(STORAGE_KEYS.COMPLETIONS, JSON.stringify(completions));
+      localStorage.setItem(STORAGE_KEYS.OUTCOMES, JSON.stringify(outcomes));
+      localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(auditLogs));
+      localStorage.setItem(STORAGE_KEYS.ORG_PROFILE, JSON.stringify(orgProfile));
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    }
   }, [
     students,
     courses,
@@ -399,6 +455,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
     };
     setAuditLogs((prev) => [newLog, ...prev.slice(0, 49)]);
+    if (checkIsSupabaseConfigured()) syncAuditLog(newLog);
   };
 
   // 1. STUDENT ACTIONS
@@ -414,6 +471,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
     setStudents((prev) => [newStudent, ...prev]);
     addAuditLog('Student Registered', 'Student', newStudent.utNumber, `Registered ${newStudent.fullName} (${newStudent.courseName})`);
+    if (checkIsSupabaseConfigured()) syncStudent(newStudent);
     return newStudent;
   };
 
@@ -502,12 +560,17 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     }
 
     addAuditLog('Student Updated', 'Student', id, `Updated profile data for ${id}`);
+    if (checkIsSupabaseConfigured()) {
+      const updatedStu = students.find((s) => s.id === id);
+      if (updatedStu) syncStudent({ ...updatedStu, ...updated, updatedAt: new Date().toISOString().slice(0, 10) });
+    }
   };
 
   const deleteStudent = (id: string) => {
     const target = students.find((s) => s.id === id);
     setStudents((prev) => prev.filter((s) => s.id !== id));
     addAuditLog('Student Removed', 'Student', target?.utNumber || id, `Deleted student record ${target?.fullName}`);
+    if (checkIsSupabaseConfigured()) syncDeleteStudent(id);
   };
 
   const bulkImportBlossomStudents = (
@@ -753,7 +816,12 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       return Array.from(map.values());
     });
 
-    addAuditLog('Attendance Recorded', 'Attendance', records[0]?.month, `Saved attendance for ${records.length} students`);
+    if (checkIsSupabaseConfigured()) {
+        syncMonthlyAttendance(updatedAttList);
+        if (newPaymentsToUpsert.length > 0) syncPayments(newPaymentsToUpsert);
+      }
+
+      addAuditLog('Attendance Recorded', 'Attendance', records[0]?.month, `Saved attendance for ${records.length} students`);
   };
 
   const processFingerprintCSV = (logs: DailyTimeLog[], sessionDate: string) => {
@@ -824,6 +892,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       id: `SES-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
     };
     setAttendanceSessions((prev) => [...prev, newSession]);
+    if (checkIsSupabaseConfigured()) syncAttendanceSessions([newSession]);
     return newSession;
   };
 
@@ -831,6 +900,10 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     setAttendanceSessions((prev) =>
       prev.map((s) => (s.id === id ? { ...s, ...updated } : s))
     );
+    if (checkIsSupabaseConfigured()) {
+      const ses = attendanceSessions.find((s) => s.id === id);
+      if (ses) syncAttendanceSessions([{ ...ses, ...updated }]);
+    }
   };
 
   const deleteAttendanceSession = (id: string) => {
@@ -840,6 +913,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       delete copy[id];
       return copy;
     });
+    if (checkIsSupabaseConfigured()) syncDeleteAttendanceSession(id);
   };
 
   const setDailyMark = (sessionId: string, studentId: string, mark: AttendanceMark) => {
@@ -850,6 +924,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         [studentId]: mark,
       },
     }));
+    if (checkIsSupabaseConfigured()) syncAttendanceMark(sessionId, studentId, mark);
   };
 
   const batchSetDailyMarks = (sessionId: string, marks: Record<string, AttendanceMark>) => {
@@ -860,6 +935,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         ...marks,
       },
     }));
+    if (checkIsSupabaseConfigured()) syncAttendanceMarksForSession(sessionId, marks);
   };
 
   const markAllPresentForSession = (sessionId: string, studentIds: string[]) => {
@@ -876,6 +952,10 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   ) => {
     setAttendanceSessions(sessions);
     setAttendanceMarks(marks);
+    if (checkIsSupabaseConfigured()) {
+      if (sessions.length > 0) syncAttendanceSessions(sessions);
+      Object.keys(marks).forEach((sId) => syncAttendanceMarksForSession(sId, marks[sId]));
+    }
 
     const relevantStudents = students.filter(
       (s) => group === 'all' || s.group === group || (group === 'Group A' && (!s.group || s.group === 'A'))
@@ -930,6 +1010,10 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       )
     );
     addAuditLog('Payment Status Updated', 'Blossom Payment', paymentId, `Marked payment as ${status}`);
+    if (checkIsSupabaseConfigured()) {
+      const pay = blossomPayments.find((p) => p.id === paymentId);
+      if (pay) syncPayment({ ...pay, status, paymentDate: status === 'Paid' ? new Date().toISOString().slice(0, 10) : pay.paymentDate, referenceNo: referenceNo || pay.referenceNo, notes: notes || pay.notes });
+    }
   };
 
   const recordDropout = ({
@@ -985,6 +1069,10 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     );
 
     addAuditLog('Dropout Recorded', 'Dropout', student.utNumber, `Marked ${student.fullName} as Dropout (${reason})`);
+    if (checkIsSupabaseConfigured()) {
+      syncDropout(newDropout);
+      syncStudent({ ...student, currentStatus: 'Dropout' });
+    }
   };
 
   const addAssessment = (assessmentData: Omit<Assessment, 'id' | 'createdAt'>) => {
@@ -995,11 +1083,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     };
     setAssessments((prev) => [...prev, newAssessment]);
     addAuditLog('Assessment Created', 'Assessment', newAssessment.title, `Created custom assessment: ${newAssessment.title} (Max: ${newAssessment.maxMarks})`);
+    if (checkIsSupabaseConfigured()) syncAssessment(newAssessment);
   };
 
   const deleteAssessment = (id: string) => {
     setAssessments((prev) => prev.filter((a) => a.id !== id));
     setAssessmentMarks((prev) => prev.filter((m) => m.assessmentId !== id));
+    if (checkIsSupabaseConfigured()) syncDeleteAssessment(id);
   };
 
   const saveAssessmentMarks = (
@@ -1020,6 +1110,17 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       return [...filtered, ...newMarks];
     });
     addAuditLog('Marks Graded', 'Assessment Marks', assessmentId, `Graded marks for ${marks.length} students`);
+    if (checkIsSupabaseConfigured()) {
+      const nowStr = new Date().toISOString().slice(0, 10);
+      syncAssessmentMarks(marks.map((m) => ({
+        id: `MRK-${assessmentId}-${m.studentId}`,
+        assessmentId,
+        studentId: m.studentId,
+        marksObtained: m.marksObtained,
+        feedback: m.feedback,
+        gradedAt: nowStr,
+      })));
+    }
   };
 
   const recordCompletion = (completionData: Omit<CourseCompletion, 'id'>) => {
@@ -1034,6 +1135,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     );
 
     addAuditLog('Course Completed', 'Completion', completionData.utNumber, `Completed course with Grade ${completionData.overallGrade}`);
+    if (checkIsSupabaseConfigured()) {
+      syncCompletion(newCompletion);
+      const st = students.find((s) => s.id === completionData.studentId);
+      if (st) syncStudent({ ...st, currentStatus: 'Completed' });
+    }
   };
 
   const saveStudentOutcome = (outcomeData: Omit<StudentOutcome, 'id' | 'updatedAt'>) => {
@@ -1052,6 +1158,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     ]);
 
     addAuditLog('Student Outcome Recorded', 'Outcome', outcomeData.utNumber, `Current Status: ${outcomeData.outcomeStatus} (${outcomeData.companyOrInstitution || 'N/A'})`);
+    if (checkIsSupabaseConfigured()) syncOutcome(newOutcome);
   };
 
   const addCourse = (courseData: Omit<Course, 'id'>) => {
@@ -1064,10 +1171,15 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       ...prev,
       courses: [...prev.courses, newCourse],
     }));
+    if (checkIsSupabaseConfigured()) syncCourse(newCourse);
   };
 
   const updateCourse = (id: string, updated: Partial<Course>) => {
     setCourses((prev) => prev.map((c) => (c.id === id ? { ...c, ...updated } : c)));
+    if (checkIsSupabaseConfigured()) {
+      const crs = courses.find((c) => c.id === id);
+      if (crs) syncCourse({ ...crs, ...updated });
+    }
   };
 
   const addBatch = (batchData: Omit<Batch, 'id'>) => {
@@ -1076,11 +1188,14 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       id: `BAT-${String(batches.length + 1).padStart(2, '0')}`,
     };
     setBatches((prev) => [...prev, newBatch]);
+    if (checkIsSupabaseConfigured()) syncBatch(newBatch);
   };
 
   const updateSettings = (newSettings: Partial<SystemSettings>) => {
-    setSettings((prev) => ({ ...prev, ...newSettings }));
+    const updated = { ...settings, ...newSettings };
+    setSettings(updated);
     addAuditLog('Settings Updated', 'System Settings', 'Config', 'Updated system thresholds and settings');
+    if (checkIsSupabaseConfigured()) syncSettings(updated);
   };
 
   const updateOrgProfile = (profile: Partial<OrgProfile>) => {
@@ -1112,6 +1227,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     setAttendanceSessions(sessions);
     setAttendanceMarks(marks);
     setMonthlyAttendance(monthly);
+    if (checkIsSupabaseConfigured()) {
+      if (sessions.length > 0) syncAttendanceSessions(sessions);
+      Object.keys(marks).forEach((sId) => syncAttendanceMarksForSession(sId, marks[sId]));
+      if (monthly.length > 0) syncMonthlyAttendance(monthly);
+    }
   };
 
   const importGoogleSheetAttendance = (
@@ -1141,6 +1261,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     // or just calculate it right here using the new data!
     
     // We can do it right here:
+    let newMonthlyRecords: MonthlyAttendance[] = [];
     setMonthlyAttendance(prev => {
       const year = parseInt(month.split('-')[0], 10) || 2026;
       const filteredMonthly = prev.filter(m => m.month !== month);
@@ -1179,8 +1300,15 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         };
       });
       
+      newMonthlyRecords = newMonthly;
       return [...filteredMonthly, ...newMonthly];
     });
+
+    if (checkIsSupabaseConfigured()) {
+      if (newSessions.length > 0) syncAttendanceSessions(newSessions);
+      Object.keys(newMarks).forEach((sessionId) => syncAttendanceMarksForSession(sessionId, newMarks[sessionId]));
+      if (newMonthlyRecords.length > 0) syncMonthlyAttendance(newMonthlyRecords);
+    }
 
     addAuditLog('Google Sheets Import', 'Attendance', month, `Imported ${newSessions.length} sessions`);
   };
