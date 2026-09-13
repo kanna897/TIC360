@@ -7,6 +7,7 @@ const supabase = createClient(url, anonKey);
 
 const initialCourses = [
   {
+    id: 'CRS-TIC-01',
     code: 'TIC-WD-01',
     name: 'Full-Stack Web Development',
     description: 'Comprehensive web architecture with React, Next.js, Node.js, and SQL',
@@ -14,6 +15,7 @@ const initialCourses = [
     is_active: true,
   },
   {
+    id: 'CRS-TIC-02',
     code: 'TIC-UI-02',
     name: 'UI/UX Design & Product Strategy',
     description: 'Modern user interface design, Figma workflows, wireframing, and user testing',
@@ -21,6 +23,7 @@ const initialCourses = [
     is_active: true,
   },
   {
+    id: 'CRS-TIC-03',
     code: 'TIC-DA-03',
     name: 'Data Analytics & Business Intelligence',
     description: 'Data transformation, Python, Power BI, Excel mastery, and statistical modeling',
@@ -28,6 +31,7 @@ const initialCourses = [
     is_active: true,
   },
   {
+    id: 'CRS-TIC-04',
     code: 'TIC-CS-04',
     name: 'Cybersecurity Fundamentals & Network Security',
     description: 'Defensive security, Linux administration, ethical hacking, and threat mitigation',
@@ -35,6 +39,7 @@ const initialCourses = [
     is_active: true,
   },
   {
+    id: 'CRS-TIC-05',
     code: 'TIC-DM-05',
     name: 'Digital Marketing & Content Strategy',
     description: 'SEO, SEM, social media growth engineering, analytics, and branding',
@@ -63,6 +68,7 @@ async function seed() {
   console.log('Seeding batches...');
   const initialBatches = [
     {
+      id: 'BATCH-2026-A',
       name: 'Batch 2026-A (Morning)',
       course_id: courseMap['TIC-WD-01'] || dbCourses?.[0]?.id,
       start_date: '2026-01-10',
@@ -70,6 +76,7 @@ async function seed() {
       status: 'Active',
     },
     {
+      id: 'BATCH-2026-B',
       name: 'Batch 2026-B (Evening)',
       course_id: courseMap['TIC-UI-02'] || dbCourses?.[1]?.id,
       start_date: '2026-02-01',
@@ -77,6 +84,7 @@ async function seed() {
       status: 'Active',
     },
     {
+      id: 'BATCH-2026-C',
       name: 'Batch 2026-C (Weekend)',
       course_id: courseMap['TIC-DA-03'] || dbCourses?.[2]?.id,
       start_date: '2026-01-15',
@@ -96,6 +104,7 @@ async function seed() {
   console.log('Seeding sample students...');
   const students = [
     {
+      id: 'STU-2026-001',
       ut_number: 'UT-2026-001',
       full_name: 'Kavitha Sivarajah',
       nic: '200178401923',
@@ -114,6 +123,7 @@ async function seed() {
       current_status: 'Active',
     },
     {
+      id: 'STU-2026-002',
       ut_number: 'UT-2026-002',
       full_name: 'Mohamed Rizwan',
       nic: '200019203948',
@@ -132,6 +142,7 @@ async function seed() {
       current_status: 'Active',
     },
     {
+      id: 'STU-2026-003',
       ut_number: 'UT-2026-003',
       full_name: 'Tharushi Perera',
       nic: '200289102938',
