@@ -610,3 +610,94 @@ export const syncSettings = (settings: SystemSettings) =>
 
 export const syncAuditLog = (log: AuditLog) =>
   safeUpsert('audit_logs', [toDbAuditLog(log)]);
+
+// ─── Seed Reset: wipe TIC360 tables then write seed data ─────────────────────
+
+/** Safely truncates a table by deleting all rows (uses neq trick for RLS). */
+const safeTruncate = async (table: string) => {
+  try {
+    // Delete all rows: filter id != '' covers all rows including empty-string ids
+    const { error } = await supabase.from(table).delete().neq('id', '___NONE___');
+    if (error) console.warn(`[supabaseSync] truncate ${table}:`, error.message);
+  } catch (e) {
+    console.warn(`[supabaseSync] safeTruncate ${table}:`, e);
+  }
+};
+
+export const resetSeedDataInSupabase = async (state: {
+  students: Student[];
+  courses: Course[];
+  batches: Batch[];
+  attendanceSessions: AttendanceSession[];
+  attendanceMarks: Record<string, Record<string, AttendanceMark>>;
+  monthlyAttendance: MonthlyAttendance[];
+  blossomPayments: BlossomMonthlyPayment[];
+  dropouts: DropoutRecord[];
+  assessments: Assessment[];
+  assessmentMarks: AssessmentMark[];
+  completions: CourseCompletion[];
+  outcomes: StudentOutcome[];
+  auditLogs: AuditLog[];
+  settings: SystemSettings | null;
+}) => {
+  console.log('[supabaseSync] Resetting Supabase to seed data...');
+
+  // Step 1: Delete in reverse FK order (children first)
+  await Promise.all([
+    safeTruncate('audit_logs'),
+    safeTruncate('student_outcomes'),
+    safeTruncate('course_completions'),
+    safeTruncate('assessment_marks'),
+    safeTruncate('assessments'),
+    safeTruncate('blossom_payments'),
+    safeTruncate('dropouts'),
+    safeTruncate('attendance_marks'),
+    safeTruncate('attendance_sessions'),
+    safeTruncate('attendance'),
+  ]);
+  await safeTruncate('students');
+  await Promise.all([
+    safeTruncate('batches'),
+  ]);
+  await safeTruncate('courses');
+
+  // Step 2: Insert seed data in FK order (parents first)
+  await Promise.all([
+    safeUpsert('courses', state.courses.map(toDbCourse)),
+  ]);
+  await Promise.all([
+    safeUpsert('batches', state.batches.map(toDbBatch)),
+  ]);
+  await safeUpsert('students', state.students.map(toDbStudent));
+
+  await safeUpsert('attendance_sessions', state.attendanceSessions.map(toDbAttendanceSession));
+
+  const marksArray: object[] = [];
+  Object.keys(state.attendanceMarks).forEach(sessionId => {
+    Object.keys(state.attendanceMarks[sessionId]).forEach(studentId => {
+      marksArray.push({
+        id: `MARK-${sessionId}-${studentId}`,
+        session_id: sessionId,
+        student_id: studentId,
+        mark: state.attendanceMarks[sessionId][studentId],
+      });
+    });
+  });
+  if (marksArray.length) await safeUpsert('attendance_marks', marksArray);
+
+  await Promise.all([
+    safeUpsert('attendance', state.monthlyAttendance.map(toDbMonthlyAttendance)),
+    safeUpsert('blossom_payments', state.blossomPayments.map(toDbPayment)),
+    safeUpsert('dropouts', state.dropouts.map(toDbDropout)),
+    safeUpsert('assessments', state.assessments.map(toDbAssessment)),
+    safeUpsert('assessment_marks', state.assessmentMarks.map(toDbAssessmentMark)),
+    safeUpsert('course_completions', state.completions.map(toDbCompletion)),
+    safeUpsert('student_outcomes', state.outcomes.map(toDbOutcome)),
+    safeUpsert('audit_logs', state.auditLogs.slice(0, 100).map(toDbAuditLog)),
+    state.settings
+      ? supabase.from('system_settings').upsert({ key: 'default', value: state.settings }).then(() => {})
+      : Promise.resolve(),
+  ]);
+
+  console.log('[supabaseSync] Seed reset complete.');
+};

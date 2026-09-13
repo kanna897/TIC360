@@ -64,6 +64,7 @@ import {
   syncBatch,
   syncSettings,
   syncAuditLog,
+  resetSeedDataInSupabase,
 } from './supabaseSync';
 import { UserAccount, registerStudentAccount, getRegisteredAccounts } from './auth';
 
@@ -1203,9 +1204,12 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const resetToDefaults = () => {
+    // 1. Reset React state + localStorage immediately (optimistic)
     setStudents(initialStudents);
     setCourses(initialCourses);
     setBatches(initialBatches);
+    setAttendanceSessions(initialAttendanceSessions);
+    setAttendanceMarks(initialDailyAttendanceMarks);
     setMonthlyAttendance(initialMonthlyAttendance);
     setBlossomPayments(initialBlossomPayments);
     setDropouts(initialDropouts);
@@ -1217,6 +1221,26 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     setOrgProfile(initialOrgProfile);
     setSettings(initialSystemSettings);
     addAuditLog('System Reset', 'Database', 'All', 'Restored system database to initial factory defaults');
+
+    // 2. Sync seed data to Supabase in the background
+    if (checkIsSupabaseConfigured()) {
+      resetSeedDataInSupabase({
+        students: initialStudents,
+        courses: initialCourses,
+        batches: initialBatches,
+        attendanceSessions: initialAttendanceSessions,
+        attendanceMarks: initialDailyAttendanceMarks,
+        monthlyAttendance: initialMonthlyAttendance,
+        blossomPayments: initialBlossomPayments,
+        dropouts: initialDropouts,
+        assessments: initialAssessments,
+        assessmentMarks: initialAssessmentMarks,
+        completions: initialCompletions,
+        outcomes: initialStudentOutcomes,
+        auditLogs: initialAuditLogs,
+        settings: initialSystemSettings,
+      }).catch(e => console.warn('[store] resetSeedDataInSupabase failed:', e));
+    }
   };
 
   const bulkImportAllAttendance = (
