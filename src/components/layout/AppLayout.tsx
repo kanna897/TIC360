@@ -6,8 +6,10 @@ import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 import { StoreProvider, useStore } from '@/lib/store';
 import { canAccessRoute, getDefaultRouteForRole } from '@/lib/permissions';
+import { AutoImportWrapper } from '@/components/AutoImportWrapper';
 
 const AppLayoutContent = ({ children }: { children: React.ReactNode }) => {
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -47,6 +49,8 @@ const AppLayoutContent = ({ children }: { children: React.ReactNode }) => {
         <main className="flex-1 p-3 sm:p-5 lg:p-6 max-w-[1850px] w-full mx-auto space-y-8">
           {children}
         </main>
+        {/* AutoImportWrapper inside StoreProvider scope — useStore() will have valid context */}
+        <AutoImportWrapper />
       </div>
     </div>
   );
