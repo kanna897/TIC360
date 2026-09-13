@@ -24,7 +24,7 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
-import { Student, Gender, StudentStatus, Course, Batch } from '@/lib/types';
+import { Student, Gender, StudentStatus, Course, Batch, DropoutReason } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -42,9 +42,11 @@ export default function StudentsPage() {
     courses,
     batches,
     outcomes,
+    dropouts,
     addStudent,
     updateStudent,
     deleteStudent,
+    recordDropout,
     currentRole,
     monthlyAttendance,
     settings,
@@ -67,6 +69,8 @@ export default function StudentsPage() {
 
   // Edit Student Modal
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  // Dropout month selected in edit modal when status = Dropout
+  const [editDropoutMonth, setEditDropoutMonth] = useState<string>(new Date().toISOString().slice(0, 7));
 
   // Add Student Modal & Form State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -271,7 +275,20 @@ export default function StudentsPage() {
     e.preventDefault();
     if (!editingStudent) return;
 
-    updateStudent(editingStudent.id, editingStudent);
+    // If status changed TO Dropout and no existing dropout record → create one
+    const alreadyHasDropoutRecord = dropouts.some((d) => d.studentId === editingStudent.id);
+    if (editingStudent.currentStatus === 'Dropout' && !alreadyHasDropoutRecord) {
+      recordDropout({
+        studentId: editingStudent.id,
+        dropoutMonth: editDropoutMonth,
+        reason: 'Unknown' as DropoutReason,
+        rejoinPossibility: 'Unknown',
+        remarks: 'Marked as Dropout via Student Directory edit',
+      });
+    } else {
+      updateStudent(editingStudent.id, editingStudent);
+    }
+
     setEditingStudent(null);
   };
 
@@ -1419,12 +1436,13 @@ export default function StudentsPage() {
               <Select
                 label="Status"
                 value={editingStudent.currentStatus}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const newStatus = e.target.value as StudentStatus;
                   setEditingStudent({
                     ...editingStudent,
-                    currentStatus: e.target.value as StudentStatus,
-                  })
-                }
+                    currentStatus: newStatus,
+                  });
+                }}
                 options={[
                   { value: 'Active', label: 'Active' },
                   { value: 'Completed', label: 'Completed' },
@@ -1432,6 +1450,44 @@ export default function StudentsPage() {
                   { value: 'Other', label: 'Other' },
                 ]}
               />
+
+              {/* Dropout Month dropdown — only shown when Dropout is selected */}
+              {editingStudent.currentStatus === 'Dropout' && !dropouts.some((d) => d.studentId === editingStudent.id) && (
+                <div className="col-span-full">
+                  <Select
+                    label="🚨 Dropout Month — எந்த மாதம் dropout ஆனார்? *"
+                    value={editDropoutMonth}
+                    onChange={(e) => setEditDropoutMonth(e.target.value)}
+                    options={[
+                      { value: '2026-01', label: 'January 2026' },
+                      { value: '2026-02', label: 'February 2026' },
+                      { value: '2026-03', label: 'March 2026' },
+                      { value: '2026-04', label: 'April 2026' },
+                      { value: '2026-05', label: 'May 2026' },
+                      { value: '2026-06', label: 'June 2026' },
+                      { value: '2026-07', label: 'July 2026' },
+                      { value: '2026-08', label: 'August 2026' },
+                      { value: '2026-09', label: 'September 2026' },
+                      { value: '2026-10', label: 'October 2026' },
+                      { value: '2026-11', label: 'November 2026' },
+                      { value: '2026-12', label: 'December 2026' },
+                      { value: '2027-01', label: 'January 2027' },
+                      { value: '2027-02', label: 'February 2027' },
+                      { value: '2027-03', label: 'March 2027' },
+                    ]}
+                  />
+                  <p className="text-[11px] text-amber-400 mt-1.5 flex items-center gap-1">
+                    ⚠️ இந்த மாதத்தில் attendance list-ல் தெரிவார் — அதற்கு பிறகு auto-hide ஆவார்
+                  </p>
+                </div>
+              )}
+
+              {/* Already has dropout record — show existing month */}
+              {editingStudent.currentStatus === 'Dropout' && dropouts.some((d) => d.studentId === editingStudent.id) && (
+                <div className="col-span-full p-3 rounded-xl bg-rose-950/30 border border-rose-500/30 text-xs text-rose-300">
+                  ✅ Dropout already recorded — Month: <strong>{dropouts.find((d) => d.studentId === editingStudent.id)?.dropoutMonth}</strong>
+                </div>
+              )}
             </div>
 
             {editingStudent.isBlossomTrust && (
