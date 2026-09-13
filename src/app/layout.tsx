@@ -2,7 +2,16 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { AutoImport } from '@/components/AutoImport';
+import dynamic from 'next/dynamic';
+
+// AutoImport uses useStore (client-only context) — must be dynamically imported
+// with ssr:false to prevent "useStore must be used within StoreProvider" during
+// Next.js static prerendering of /_not-found and other shell pages.
+const AutoImport = dynamic(
+  () => import('@/components/AutoImport').then((m) => m.AutoImport),
+  { ssr: false }
+);
+
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
