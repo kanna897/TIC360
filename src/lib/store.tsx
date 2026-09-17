@@ -23,6 +23,7 @@ import {
   AttendanceSession,
   AttendanceMark,
   DailyTimeLog,
+  AbsenceRequest,
 } from './types';
 import {
   initialStudents,
@@ -65,6 +66,7 @@ import {
   syncSettings,
   syncAuditLog,
   resetSeedDataInSupabase,
+  syncAbsenceRequests,
 } from './supabaseSync';
 import {
   UserAccount,
@@ -89,6 +91,7 @@ interface StoreContextType {
   assessmentMarks: AssessmentMark[];
   completions: CourseCompletion[];
   outcomes: StudentOutcome[];
+  absenceRequests: AbsenceRequest[];
   auditLogs: AuditLog[];
   orgProfile: OrgProfile;
   settings: SystemSettings;
@@ -158,6 +161,8 @@ interface StoreContextType {
     newMarks: Record<string, Record<string, AttendanceMark>>
   ) => void;
   processFingerprintCSV: (logs: DailyTimeLog[], sessionDate: string) => void;
+  submitAbsenceRequest: (req: Omit<AbsenceRequest, 'id' | 'createdAt' | 'status'>) => void;
+  updateAbsenceRequestStatus: (id: string, status: 'Submitted' | 'Approved' | 'Rejected') => void;
 
   // Blossom Payment Actions
   updatePaymentStatus: (
@@ -219,6 +224,7 @@ const STORAGE_KEYS = {
   AUDIT_LOGS: 'tic360_v2_audit_logs',
   SETTINGS: 'tic360_v2_settings',
   ORG_PROFILE: 'tic360_v2_org_profile',
+  ABSENCES: 'tic360_v2_absences',
   ROLE: 'tic360_v2_current_role',
   THEME: 'tic360_v2_theme',
   AUTH_USER: 'tic360_v2_auth_user',
@@ -249,6 +255,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   );
   const [completions, setCompletions] = useState<CourseCompletion[]>(initialCompletions);
   const [outcomes, setOutcomes] = useState<StudentOutcome[]>(initialStudentOutcomes);
+  const [absenceRequests, setAbsenceRequests] = useState<AbsenceRequest[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(initialAuditLogs);
   const [orgProfile, setOrgProfile] = useState<OrgProfile>(initialOrgProfile);
   const [settings, setSettings] = useState<SystemSettings>(initialSystemSettings);
@@ -297,6 +304,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           if (sCompletions) setCompletions(JSON.parse(sCompletions));
           const sOutcomes = localStorage.getItem(STORAGE_KEYS.OUTCOMES);
           if (sOutcomes) setOutcomes(JSON.parse(sOutcomes));
+          const sAbs = localStorage.getItem(STORAGE_KEYS.ABSENCES);
+          if (sAbs) setAbsenceRequests(JSON.parse(sAbs));
           const sAudit = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
           if (sAudit) setAuditLogs(JSON.parse(sAudit));
           const sOrg = localStorage.getItem(STORAGE_KEYS.ORG_PROFILE);
@@ -338,6 +347,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         if (data.assessmentMarks?.length) setAssessmentMarks(data.assessmentMarks);
         if (data.completions?.length) setCompletions(data.completions);
         if (data.outcomes?.length) setOutcomes(data.outcomes);
+        if (data.absenceRequests?.length) setAbsenceRequests(data.absenceRequests);
         if (data.auditLogs?.length) setAuditLogs(data.auditLogs);
         if (data.settings) setSettings(data.settings);
       } catch (e) {
@@ -463,6 +473,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem(STORAGE_KEYS.ASSESSMENT_MARKS, JSON.stringify(assessmentMarks));
       localStorage.setItem(STORAGE_KEYS.COMPLETIONS, JSON.stringify(completions));
       localStorage.setItem(STORAGE_KEYS.OUTCOMES, JSON.stringify(outcomes));
+      localStorage.setItem(STORAGE_KEYS.ABSENCES, JSON.stringify(absenceRequests));
       localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(auditLogs));
       localStorage.setItem(STORAGE_KEYS.ORG_PROFILE, JSON.stringify(orgProfile));
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
@@ -481,6 +492,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     assessmentMarks,
     completions,
     outcomes,
+    absenceRequests,
     auditLogs,
     orgProfile,
     settings,
@@ -1568,6 +1580,35 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     addAuditLog('Google Sheets Import', 'Attendance', month, `Imported ${newSessions.length} sessions`);
   };
 
+  const submitAbsenceRequest = (req: Omit<AbsenceRequest, 'id' | 'createdAt' | 'status'>) => {
+    const newReq: AbsenceRequest = {
+      ...req,
+      id: `ABS-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      status: 'Submitted',
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [newReq, ...absenceRequests];
+    setAbsenceRequests(updated);
+    try {
+      localStorage.setItem(STORAGE_KEYS.ABSENCES, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Local storage write error:', e);
+    }
+    syncAbsenceRequests(updated);
+    addAuditLog('Absence Request', 'Attendance', req.utNumber, `Absence submitted: ${req.fromDate} to ${req.toDate} (${req.reason.substring(0, 30)})`);
+  };
+
+  const updateAbsenceRequestStatus = (id: string, status: 'Submitted' | 'Approved' | 'Rejected') => {
+    const updated = absenceRequests.map(r => r.id === id ? { ...r, status } : r);
+    setAbsenceRequests(updated);
+    try {
+      localStorage.setItem(STORAGE_KEYS.ABSENCES, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Local storage write error:', e);
+    }
+    syncAbsenceRequests(updated);
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -1577,6 +1618,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         monthlyAttendance,
         attendanceSessions,
         attendanceMarks,
+        absenceRequests,
         dailyTimeLogs,
         blossomPayments,
         dropouts,
@@ -1611,6 +1653,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         bulkImportAllAttendance,
         importGoogleSheetAttendance,
         processFingerprintCSV,
+        submitAbsenceRequest,
+        updateAbsenceRequestStatus,
         updatePaymentStatus,
         recalculateMonthlyPayments,
         recordDropout,

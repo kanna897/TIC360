@@ -37,6 +37,18 @@ export interface BlossomApplication {
   verifiedAt?: string;
 }
 
+export interface AbsenceRequest {
+  id: string;
+  studentId: string;
+  utNumber: string;
+  fullName: string;
+  fromDate: string; // YYYY-MM-DD
+  toDate: string;   // YYYY-MM-DD
+  reason: string;
+  status: 'Submitted' | 'Approved' | 'Rejected';
+  createdAt: string;
+}
+
 export interface Student {
   id: string;
   utNumber: string;
@@ -291,4 +303,16 @@ export interface SystemSettings {
   dropoutReasons: DropoutReason[];
   outcomeStatuses: OutcomeStatus[];
   grades: FinalGrade[];
+}
+
+export interface AbsenceRequest {
+  id: string;
+  studentId: string;
+  utNumber: string;
+  fullName: string;
+  fromDate: string; // YYYY-MM-DD
+  toDate: string;   // YYYY-MM-DD
+  reason: string;
+  status: 'Submitted' | 'Approved' | 'Rejected';
+  createdAt: string;
 }

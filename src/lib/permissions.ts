@@ -11,6 +11,7 @@ import {
   BarChart3,
   Settings,
   Sparkles,
+  ClipboardList,
   LucideIcon,
 } from 'lucide-react';
 
@@ -43,6 +44,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
       '/',
       '/students',
       '/attendance',
+      '/absentees-form',
       '/blossom-payments',
       '/dropouts',
       '/assessments',
@@ -61,6 +63,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
       { label: 'Dashboard', href: '/', icon: LayoutDashboard, badge: null },
       { label: 'Students Directory', href: '/students', icon: Users, badge: null },
       { label: 'Attendance', href: '/attendance', icon: CalendarCheck, badge: 'Monthly' },
+      { label: 'Absentees Form', href: '/absentees-form', icon: ClipboardList, badge: 'Leaves' },
       { label: 'Blossom Payments', href: '/blossom-payments', icon: HeartHandshake, badge: 'Rule: 80%' },
       { label: 'Dropout Management', href: '/dropouts', icon: UserX, badge: null },
       { label: 'Assessments & Marks', href: '/assessments', icon: FileSpreadsheet, badge: null },
@@ -105,6 +108,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
     allowedRoutes: [
       '/',
       '/attendance',
+      '/absentees-form',
       '/assessments',
       '/outcomes',
       '/students',
@@ -113,6 +117,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
     navItems: [
       { label: 'Dashboard', href: '/', icon: LayoutDashboard, badge: null },
       { label: 'Record Attendance', href: '/attendance', icon: CalendarCheck, badge: 'Daily/Mo' },
+      { label: 'Absentees Form', href: '/absentees-form', icon: ClipboardList, badge: 'Leaves' },
       { label: 'Assessments & Marks', href: '/assessments', icon: FileSpreadsheet, badge: 'Grading' },
       { label: 'Course Completions', href: '/outcomes', icon: GraduationCap, badge: 'Certify' },
       { label: 'Trainees Roster', href: '/students', icon: Users, badge: null },
@@ -151,12 +156,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
     allowedRoutes: [
       '/portal',
       '/register',
+      '/absentees-form',
       '/survey',
       '/graduate-survey',
       '/login',
     ],
     navItems: [
       { label: 'My Trainee Portal', href: '/portal', icon: Sparkles, badge: 'Profile & Stipend' },
+      { label: 'Absentees Form', href: '/absentees-form', icon: ClipboardList, badge: 'Apply Leave' },
       { label: 'Admission Application', href: '/register', icon: GraduationCap, badge: null },
       { label: 'Graduate Career Survey', href: '/survey', icon: Briefcase, badge: 'Placement' },
     ],
@@ -172,7 +179,9 @@ export const canAccessRoute = (role: UserRole | undefined, pathname: string): bo
     pathname === '/survey' ||
     pathname.startsWith('/survey/') ||
     pathname === '/graduate-survey' ||
-    pathname.startsWith('/graduate-survey/')
+    pathname.startsWith('/graduate-survey/') ||
+    pathname === '/absentees-form' ||
+    pathname.startsWith('/absentees-form/')
   ) {
     return true;
   }

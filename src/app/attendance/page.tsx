@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import Link from 'next/link';
 import {
   CalendarCheck,
   Search,
@@ -25,6 +26,7 @@ import {
   ChevronRight,
   UploadCloud,
   FileSpreadsheet,
+  ClipboardList,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { AttendanceSession, AttendanceMark, Student } from '@/lib/types';
@@ -45,6 +47,7 @@ export default function AttendancePage() {
     dropouts,
     attendanceSessions,
     attendanceMarks,
+    absenceRequests,
     addAttendanceSession,
     updateAttendanceSession,
     deleteAttendanceSession,
@@ -373,6 +376,17 @@ export default function AttendancePage() {
           >
             Bulk Upload 6 Months (Excel)
           </Button>
+
+          <Link href="/absentees-form">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<ClipboardList className="w-4 h-4 text-amber-400" />}
+              className="border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+            >
+              Absentees Form ({absenceRequests.length})
+            </Button>
+          </Link>
 
           <Button
             variant="outline"
@@ -734,25 +748,81 @@ export default function AttendancePage() {
                       {monthSessions.map((ses) => {
                         const mark = attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
 
+                        // Find leave request matching this student & session date
+                        const matchingAbsence = absenceRequests.find((r) => {
+                          const reqUt = (r.utNumber || '').trim().toUpperCase();
+                          const sUt = (stu.utNumber || '').trim().toUpperCase();
+                          const isStudentMatch = (reqUt && reqUt === sUt) || (r.studentId && r.studentId === stu.id);
+                          if (!isStudentMatch) return false;
+                          return ses.date >= r.fromDate && ses.date <= r.toDate;
+                        });
+
                         return (
                           <td
                             key={`cell-${ses.id}-${stu.id}`}
-                            className="p-0.5 text-center border-r border-slate-800/60 select-none"
+                            className="p-0.5 text-center border-r border-slate-800/60 select-none relative group/cell"
                           >
                             <button
                               type="button"
                               onClick={() => handleToggleCell(ses.id, stu.id)}
-                              className={`w-6 h-6 rounded font-bold text-[10px] transition-all duration-150 flex items-center justify-center mx-auto shadow-sm active:scale-90 ${
+                              className={`w-6 h-6 rounded font-bold text-[10px] transition-all duration-150 relative flex items-center justify-center mx-auto shadow-sm active:scale-90 ${
                                 mark === 'P'
                                   ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
                                   : mark === 'A'
                                   ? 'bg-rose-600 hover:bg-rose-500 text-white'
                                   : 'bg-amber-500 hover:bg-amber-400 text-white'
-                              }`}
-                              title={`Click to toggle attendance for ${stu.fullName} on ${ses.displayDate}`}
+                              } ${matchingAbsence ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-slate-950' : ''}`}
+                              title={matchingAbsence ? `Leave Applied: "${matchingAbsence.reason}". Click to toggle mark.` : `Click to toggle attendance for ${stu.fullName} on ${ses.displayDate}`}
                             >
                               {mark}
+                              {matchingAbsence && (
+                                <span
+                                  className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-slate-950 shadow-md animate-pulse z-10"
+                                  title={`Leave Reason: ${matchingAbsence.reason}`}
+                                />
+                              )}
                             </button>
+
+                            {/* Leave Reason Popover on Hover */}
+                            {matchingAbsence && (
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-64 p-3 rounded-2xl bg-slate-950/95 border-2 border-amber-500/60 shadow-2xl backdrop-blur-xl text-left pointer-events-none opacity-0 group-hover/cell:opacity-100 transition-all duration-200">
+                                <div className="flex items-center justify-between gap-1 mb-1.5 pb-1.5 border-b border-slate-800">
+                                  <div className="flex items-center gap-1.5">
+                                    <ClipboardList className="w-3.5 h-3.5 text-amber-400" />
+                                    <span className="text-[11px] font-extrabold text-white uppercase tracking-wider">Leave Application</span>
+                                  </div>
+                                  <span
+                                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                                      matchingAbsence.status === 'Approved'
+                                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                        : matchingAbsence.status === 'Rejected'
+                                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                                        : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                                    }`}
+                                  >
+                                    {matchingAbsence.status}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-slate-100 font-extrabold leading-tight mb-0.5">
+                                  {stu.fullName}
+                                </div>
+                                <div className="text-[10px] font-mono text-cyan-300 font-bold mb-1.5">
+                                  UT: {stu.utNumber}
+                                </div>
+                                <div className="text-[10px] text-slate-400 mb-2 flex items-center gap-1.5 font-medium">
+                                  <Calendar className="w-3 h-3 text-slate-400" />
+                                  <span>Period:</span>
+                                  <span className="font-mono text-slate-200">{matchingAbsence.fromDate}</span>
+                                  <span>&rarr;</span>
+                                  <span className="font-mono text-slate-200">{matchingAbsence.toDate}</span>
+                                </div>
+                                <div className="p-2 rounded-xl bg-slate-900/90 border border-amber-500/30 text-[11px] text-amber-200 font-medium italic break-words shadow-inner">
+                                  &ldquo;{matchingAbsence.reason}&rdquo;
+                                </div>
+                                {/* Small triangle arrow at bottom center */}
+                                <div className="w-2.5 h-2.5 bg-slate-950 border-r-2 border-b-2 border-amber-500/60 transform rotate-45 absolute -bottom-1.5 left-1/2 -translate-x-1/2" />
+                              </div>
+                            )}
                           </td>
                         );
                       })}

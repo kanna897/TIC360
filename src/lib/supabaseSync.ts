@@ -2,7 +2,7 @@ import { supabase } from './supabaseClient';
 import {
   Student, Course, Batch, MonthlyAttendance, BlossomMonthlyPayment, DropoutRecord,
   Assessment, AssessmentMark, CourseCompletion, StudentOutcome, AuditLog,
-  SystemSettings, AttendanceSession, AttendanceMark
+  SystemSettings, AttendanceSession, AttendanceMark, AbsenceRequest
 } from './types';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -501,7 +501,8 @@ export const fetchAllFromSupabase = async () => {
     completions,
     outcomes,
     auditLogs: (auditLogsRaw || []).map(fromDbAuditLog),
-    settings: (settingsData?.[0]?.value as SystemSettings) || null,
+    settings: (settingsData?.find((s: any) => s.key === 'default')?.value as SystemSettings) || null,
+    absenceRequests: (settingsData?.find((s: any) => s.key === 'absence_requests')?.value as AbsenceRequest[]) || [],
   };
 };
 
@@ -655,6 +656,9 @@ export const syncBatch = (batch: Batch) =>
 
 export const syncSettings = (settings: SystemSettings) =>
   supabase.from('system_settings').upsert({ key: 'default', value: settings }).then(() => {});
+
+export const syncAbsenceRequests = (requests: AbsenceRequest[]) =>
+  supabase.from('system_settings').upsert({ key: 'absence_requests', value: requests }).then(() => {});
 
 export const syncAuditLog = (log: AuditLog) =>
   safeUpsert('audit_logs', [toDbAuditLog(log)]);
