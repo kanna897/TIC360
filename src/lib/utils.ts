@@ -260,3 +260,44 @@ export function getStudentDropoutStatusInMonth(
     isActiveInMonth: isBeforeDropoutMonth || !dropoutRecord,
   };
 }
+
+export const GROUP_B_STUDENT_UTS = new Set([
+  'UT011003','UT011004','UT011007','UT011008','UT011009','UT011010','UT011014','UT011037',
+  'UT011046','UT011052','UT011080','UT011083','UT011111','UT011117','UT011145','UT011148',
+  'UT011166','UT011167','UT011197','UT011205','UT011206','UT011207','UT011210','UT011211',
+  'UT011214','UT011216','UT011219','UT011222','UT011242','UT011267','UT011284','UT011303',
+  'UT011305','UT011307','UT011309','UT011311','UT011312','UT011314','UT011331','UT011333',
+  'UT011351','UT011406','UT011412','UT011421','UT011436','UT011442','UT011506','UT011510',
+  'UT011518','UT011524','UT011527','UT011528','UT011537','UT011602','UT011611','UT011612',
+  'UT011648','UT011651','UT011689','UT011715','UT011718','UT011724','UT011732','UT011733',
+  'UT011734','UT011742','UT011748','UT011751','UT011753','UT011760','UT011764','UT011767',
+  'UT011776','UT011780','UT011781','UT011787','UT011809','UT011810','UT011819','UT011825',
+  'UT011828'
+]);
+
+export function resolveStudentGroup(stu: {
+  utNumber?: string;
+  courseId?: string;
+  courseName?: string;
+  group?: string;
+}): 'Group A' | 'Group B' | 'Frontend Developer' {
+  if (stu.group === 'Group A' || stu.group === 'Group B' || stu.group === 'Frontend Developer') {
+    return stu.group;
+  }
+  const cleanUt = (stu.utNumber || '').trim().toUpperCase();
+  if (cleanUt === 'UT011700') return 'Group A';
+
+  if (
+    stu.courseId === 'Frontend Developer' ||
+    stu.courseName === 'Frontend Developer' ||
+    stu.group === 'Frontend Developer'
+  ) {
+    return 'Frontend Developer';
+  }
+
+  if (GROUP_B_STUDENT_UTS.has(cleanUt)) {
+    return 'Group B';
+  }
+
+  return 'Group A';
+}

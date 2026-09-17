@@ -4,6 +4,7 @@ import {
   Assessment, AssessmentMark, CourseCompletion, StudentOutcome, AuditLog,
   SystemSettings, AttendanceSession, AttendanceMark, AbsenceRequest
 } from './types';
+import { resolveStudentGroup } from './utils';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -414,6 +415,7 @@ export const fetchAllFromSupabase = async () => {
     const student = fromDbStudent(s);
     student.batchName = batches.find(b => b.id === student.batchId)?.name || '';
     student.courseName = courses.find(c => c.id === student.courseId)?.name || '';
+    student.group = resolveStudentGroup(student);
 
     const bank = bankMap.get(student.id);
     if (bank) {

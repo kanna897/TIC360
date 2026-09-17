@@ -36,7 +36,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { exportToCSV, exportToExcel, formatMonthName, getStudentDropoutStatusInMonth } from '@/lib/utils';
+import { exportToCSV, exportToExcel, formatMonthName, getStudentDropoutStatusInMonth, resolveStudentGroup } from '@/lib/utils';
 import { FingerprintUploadModal } from '@/components/attendance/FingerprintUploadModal';
 import { BulkAttendanceUploadModal } from '@/components/attendance/BulkAttendanceUploadModal';
 
@@ -102,22 +102,24 @@ export default function AttendancePage() {
       const { isAfterDropoutMonth } = getStudentDropoutStatusInMonth(s, dropouts, selectedMonthString);
       if (isAfterDropoutMonth) return false;
 
+      const resolvedGrp = resolveStudentGroup(s);
+
       // Explicitly protect UT011700 as Full Stack (never Frontend)
       const isFrontend =
         cleanUt !== 'UT011700' &&
         (s.courseName === 'Frontend Developer' ||
           s.courseId === 'Frontend Developer' ||
-          s.group === 'Frontend Developer');
+          resolvedGrp === 'Frontend Developer');
       const isFullStack = !isFrontend;
 
       let matchesGroup = false;
       if (selectedGroup === 'all') matchesGroup = true;
       else if (selectedGroup === 'Full Stack - Group A') {
-        matchesGroup = isFullStack && (s.group === 'Group A' || s.group === 'A');
+        matchesGroup = isFullStack && resolvedGrp === 'Group A';
       } else if (selectedGroup === 'Full Stack - Group B') {
-        matchesGroup = isFullStack && (s.group === 'Group B' || s.group === 'B');
+        matchesGroup = isFullStack && resolvedGrp === 'Group B';
       } else if (selectedGroup === 'Frontend Developer') {
-        matchesGroup = isFrontend;
+        matchesGroup = isFrontend || resolvedGrp === 'Frontend Developer';
       }
       const matchesBatch = selectedBatch === 'all' || s.batchId === selectedBatch;
       const matchesSearch =

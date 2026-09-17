@@ -68,6 +68,7 @@ import {
   resetSeedDataInSupabase,
   syncAbsenceRequests,
 } from './supabaseSync';
+import { resolveStudentGroup } from './utils';
 import {
   UserAccount,
   registerStudentAccount,
@@ -325,8 +326,10 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
             if (!key) return;
             if (!seen.has(key)) {
               seen.add(key);
+              // Ensure group is deterministically assigned
+              s.group = resolveStudentGroup(s);
               // Fix UT011700 if accidentally assigned to Frontend Developer
-              if (key === 'UT011700' && (s.courseName === 'Frontend Developer' || s.courseId === 'Frontend Developer')) {
+              if (key === 'UT011700') {
                 s.courseId = 'CRS-TIC-01';
                 s.courseName = 'Full-Stack Web Development';
                 s.group = 'Group A';
