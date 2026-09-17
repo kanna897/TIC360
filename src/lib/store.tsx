@@ -792,6 +792,51 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       return nextStudents;
     });
 
+    if (checkIsSupabaseConfigured()) {
+      setTimeout(async () => {
+        try {
+          const { data: currentDbStudents } = await supabase.from('students').select('*');
+          rows.forEach((row) => {
+            if (!row.fullName && !row.utNumber) return;
+            const cleanUt = row.utNumber?.trim().toUpperCase();
+            const cleanName = row.fullName?.trim().toLowerCase();
+            const match = currentDbStudents?.find(s =>
+              (cleanUt && (s.ut_number || '').trim().toUpperCase() === cleanUt) ||
+              (cleanName && (s.full_name || '').trim().toLowerCase() === cleanName)
+            );
+            if (match) {
+              const amount = row.amount !== undefined ? parseAmt(row.amount) : 15000;
+              // Sync bank details
+              supabase.from('student_bank_details').upsert({
+                student_id: match.id,
+                bank_name: row.bankName || 'Pan Asia Bank',
+                branch_name: row.branchName || 'World Trade Center',
+                branch_code: row.branchCode || '1',
+                account_number: row.accountNumber || 'N/A',
+                beneficiary_name: row.beneficiaryName || row.fullName || match.full_name,
+                district: row.district || match.district || 'Jaffna',
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'student_id' }).then(() => {});
+
+              // Sync base payment
+              supabase.from('blossom_payments').upsert({
+                id: `PAY-2026-08-${match.ut_number || match.id}`,
+                student_id: match.id,
+                year: 2026,
+                month: '2026-08',
+                attendance_percentage: 100,
+                is_eligible: true,
+                amount,
+                status: 'Eligible',
+              }, { onConflict: 'id' }).then(() => {});
+            }
+          });
+        } catch (err) {
+          console.warn('[store] bulkImportBlossomStudents Supabase sync error:', err);
+        }
+      }, 100);
+    }
+
     addAuditLog(
       'Blossom Excel Import',
       'Student',
@@ -942,7 +987,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
       let isEligible = true;
       let ineligibilityReason: string | undefined = undefined;
-      let amount = settings.blossomMonthlyMax;
+      let amount = student.blossomAmount !== undefined ? student.blossomAmount : settings.blossomMonthlyMax;
       let paymentStatus: BlossomPaymentStatus = 'Eligible';
 
       if (isDropout) {

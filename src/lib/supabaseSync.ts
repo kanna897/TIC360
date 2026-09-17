@@ -362,6 +362,7 @@ export const fetchAllFromSupabase = async () => {
     { data: settingsData },
     { data: attSessionsRaw },
     { data: attMarksRaw },
+    { data: bankDetailsRaw },
   ] = await Promise.all([
     supabase.from('students').select('*').order('created_at', { ascending: false }),
     supabase.from('courses').select('*'),
@@ -377,6 +378,7 @@ export const fetchAllFromSupabase = async () => {
     supabase.from('system_settings').select('*'),
     supabase.from('attendance_sessions').select('*').order('date', { ascending: true }),
     supabase.from('attendance_marks').select('*'),
+    supabase.from('student_bank_details').select('*'),
   ]);
 
   if (eStudents) console.warn('[supabaseSync] fetch students:', eStudents.message);
@@ -390,11 +392,32 @@ export const fetchAllFromSupabase = async () => {
     return batch;
   });
 
-  // Enrich students with batch/course names
+  const bankMap = new Map((bankDetailsRaw || []).map((b: any) => [b.student_id, b]));
+  const paymentMap = new Map((blossomPayRaw || []).map((p: any) => [p.student_id, p]));
+
+  // Enrich students with batch/course names, bank details, and blossomAmount
   const students = (studentsRaw || []).map(s => {
     const student = fromDbStudent(s);
     student.batchName = batches.find(b => b.id === student.batchId)?.name || '';
     student.courseName = courses.find(c => c.id === student.courseId)?.name || '';
+
+    const bank = bankMap.get(student.id);
+    if (bank) {
+      student.bankDetails = {
+        bankName: bank.bank_name,
+        branchName: bank.branch_name,
+        branchCode: bank.branch_code || '1',
+        accountNumber: bank.account_number,
+        beneficiaryName: bank.beneficiary_name || student.fullName,
+        district: bank.district || student.district,
+      };
+    }
+
+    const pay = paymentMap.get(student.id);
+    if (pay && pay.amount !== undefined && pay.amount !== null) {
+      student.blossomAmount = Number(pay.amount);
+    }
+
     return student;
   });
 
@@ -544,8 +567,33 @@ export const syncAllToSupabase = async (state: {
 
 // ─── Granular write-through helpers (fire-and-forget per action) ─────────────
 
-export const syncStudent = (student: Student) =>
-  safeUpsert('students', [toDbStudent(student)]);
+export const syncStudent = async (student: Student) => {
+  await safeUpsert('students', [toDbStudent(student)]);
+  if (student.bankDetails) {
+    await safeUpsert('student_bank_details', [{
+      student_id: student.id,
+      bank_name: student.bankDetails.bankName,
+      branch_name: student.bankDetails.branchName,
+      branch_code: student.bankDetails.branchCode || '1',
+      account_number: student.bankDetails.accountNumber,
+      beneficiary_name: student.bankDetails.beneficiaryName || student.fullName,
+      district: student.bankDetails.district || student.district,
+      updated_at: new Date().toISOString(),
+    }]);
+  }
+};
+
+export const syncStudentBankDetails = (studentId: string, bankDetails: any, fullName?: string, district?: string) =>
+  safeUpsert('student_bank_details', [{
+    student_id: studentId,
+    bank_name: bankDetails.bankName,
+    branch_name: bankDetails.branchName,
+    branch_code: bankDetails.branchCode || '1',
+    account_number: bankDetails.accountNumber,
+    beneficiary_name: bankDetails.beneficiaryName || fullName || 'Beneficiary',
+    district: bankDetails.district || district || 'Jaffna',
+    updated_at: new Date().toISOString(),
+  }]);
 
 export const syncDeleteStudent = (id: string) => safeDelete('students', id);
 

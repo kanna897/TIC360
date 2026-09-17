@@ -174,7 +174,7 @@ export default function BlossomPaymentsPage() {
       'PHONE NO': s.phone.replace('+94 ', '0').replace(/ /g, ''),
       'DISTRICT': s.district,
       'BENEFICIARY NAME': s.bankDetails?.beneficiaryName || s.fullName,
-      'BLOSSOM TRUST AMT': s.isBlossomTrust ? 'LKR 15,000' : 'LKR 0',
+      'BLOSSOM TRUST AMT': s.isBlossomTrust ? (s.blossomAmount !== undefined ? `LKR ${s.blossomAmount.toLocaleString()}` : 'LKR 15,000') : 'LKR 0',
       'BANK': s.bankDetails?.bankName || 'N/A',
       'BRANCH NAME': s.bankDetails?.branchName || 'N/A',
       'BR. CODE': s.bankDetails?.branchCode || '1',
@@ -194,7 +194,7 @@ export default function BlossomPaymentsPage() {
       'PHONE NO': s.phone.replace('+94 ', '0').replace(/ /g, ''),
       'DISTRICT': s.district,
       'BENEFICIARY NAME': s.bankDetails?.beneficiaryName || s.fullName,
-      'BLOSSOM TRUST AMT': s.isBlossomTrust ? 'LKR 15,000' : 'LKR 0',
+      'BLOSSOM TRUST AMT': s.isBlossomTrust ? (s.blossomAmount !== undefined ? `LKR ${s.blossomAmount.toLocaleString()}` : 'LKR 15,000') : 'LKR 0',
       'BANK': s.bankDetails?.bankName || 'N/A',
       'BRANCH NAME': s.bankDetails?.branchName || 'N/A',
       'BR. CODE': s.bankDetails?.branchCode || '1',
@@ -284,7 +284,7 @@ export default function BlossomPaymentsPage() {
             const district = getVal('district', 'location', 'city');
             const beneficiaryName = getVal('beneficiary name', 'beneficiary', 'payee name', 'account name');
             const getAmountVal = () => {
-              const exact = getVal('blossom trust amt', 'blossom amt', 'amount', 'stipend', 'blossom trust amount', 'payment', 'payment amount', 'pay amount', 'pay', 'amt', 'value', 'scholarship', 'total', 'monthly payment', 'allowance', 'grant');
+              const exact = getVal('blossom trust allotment', 'allotment', 'allotment amount', 'blossom trust amt', 'blossom amt', 'amount', 'stipend', 'blossom trust amount', 'payment', 'payment amount', 'pay amount', 'pay', 'amt', 'value', 'scholarship', 'total', 'monthly payment', 'allowance', 'grant');
               if (exact) return exact;
 
               // Fallback to substring match for anything containing amount/pay/blossom/lkr
