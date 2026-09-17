@@ -308,7 +308,25 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
         // Load from Supabase
         const data = await fetchAllFromSupabase();
-        if (data.students?.length) setStudents(data.students);
+        if (data.students?.length) {
+          const seen = new Set<string>();
+          const deduped: Student[] = [];
+          data.students.forEach((s: Student) => {
+            const key = (s.utNumber || '').trim().toUpperCase();
+            if (!key) return;
+            if (!seen.has(key)) {
+              seen.add(key);
+              // Fix UT011700 if accidentally assigned to Frontend Developer
+              if (key === 'UT011700' && (s.courseName === 'Frontend Developer' || s.courseId === 'Frontend Developer')) {
+                s.courseId = 'CRS-TIC-01';
+                s.courseName = 'Full-Stack Web Development';
+                s.group = 'Group A';
+              }
+              deduped.push(s);
+            }
+          });
+          setStudents(deduped);
+        }
         if (data.courses?.length) setCourses(data.courses);
         if (data.batches?.length) setBatches(data.batches);
         if (data.monthlyAttendance?.length) setMonthlyAttendance(data.monthlyAttendance);
@@ -1348,9 +1366,12 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           utToIdMap.set(normUt, s.id);
         } else {
           const existing = existingMap.get(normUt)!;
-          if (s.group && existing.group !== s.group) {
-            existingMap.set(normUt, { ...existing, group: s.group });
-          }
+          existingMap.set(normUt, {
+            ...existing,
+            group: s.group || existing.group,
+            courseId: s.courseId || existing.courseId,
+            courseName: s.courseName || existing.courseName,
+          });
           utToIdMap.set(normUt, existing.id);
         }
       });
@@ -1396,10 +1417,23 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       return m;
     });
 
-    // Step 4: Apply to state
-    setAttendanceSessions(sessions);
-    setAttendanceMarks(remappedMarks);
-    setMonthlyAttendance(remappedMonthly);
+    // Step 4: Apply to state with smart merging
+    const importedGroups = new Set(sessions.map((s) => s.group));
+    setAttendanceSessions((prev) => {
+      const retained = prev.filter((s) => !importedGroups.has(s.group));
+      return [...retained, ...sessions];
+    });
+
+    setAttendanceMarks((prev) => ({
+      ...prev,
+      ...remappedMarks,
+    }));
+
+    setMonthlyAttendance((prev) => {
+      const importedKeys = new Set(remappedMonthly.map((m) => `${m.studentId}_${m.month}`));
+      const retained = prev.filter((m) => !importedKeys.has(`${m.studentId}_${m.month}`));
+      return [...retained, ...remappedMonthly];
+    });
 
     // Step 5: Sync to Supabase
     if (checkIsSupabaseConfigured()) {

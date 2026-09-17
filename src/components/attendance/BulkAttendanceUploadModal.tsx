@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Info,
   RefreshCw,
+  Zap,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Modal } from '@/components/ui/Modal';
@@ -36,7 +37,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
   const { bulkImportAllAttendance } = useStore();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedAttendanceData | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -47,7 +48,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
   const [autoRegisterStudents, setAutoRegisterStudents] = useState(true);
 
   const resetState = () => {
-    setSelectedFile(null);
+    setSelectedFileName(null);
     setParsedData(null);
     setParseError(null);
     setIsParsing(false);
@@ -60,18 +61,17 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
     onClose();
   };
 
-  const processFile = async (file: File) => {
-    setSelectedFile(file);
+  const processBuffer = async (buffer: ArrayBuffer, fileName: string) => {
+    setSelectedFileName(fileName);
     setIsParsing(true);
     setParseError(null);
     setParsedData(null);
 
     try {
-      const buffer = await file.arrayBuffer();
       const result = await parseAttendanceExcel(buffer);
 
       if (result.summary.totalSessions === 0) {
-        setParseError('No attendance sessions found in this workbook. Please ensure sheets match month names (April, May, June, July, August, September).');
+        setParseError('No attendance sessions found in this workbook. Please ensure sheets match month names (May, June, July, August, September, April, etc.).');
       } else {
         setParsedData(result);
       }
@@ -84,18 +84,36 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      processFile(file);
+      const buffer = await file.arrayBuffer();
+      processBuffer(buffer, file.name);
     }
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
-      processFile(file);
+      const buffer = await file.arrayBuffer();
+      processBuffer(buffer, file.name);
+    }
+  };
+
+  // Quick load pre-bundled React attendance file
+  const handleLoadBundledReactFile = async () => {
+    setIsParsing(true);
+    setParseError(null);
+    try {
+      const res = await fetch('/react_attendance.xlsx');
+      if (!res.ok) throw new Error('Could not load react_attendance.xlsx');
+      const buffer = await res.arrayBuffer();
+      await processBuffer(buffer, 'React - Students Attendance - 2026.xlsx');
+    } catch (err) {
+      console.error(err);
+      setParseError('Unable to load bundled React attendance file. Please choose or drag the file manually.');
+      setIsParsing(false);
     }
   };
 
@@ -104,7 +122,6 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
 
     setIsImporting(true);
     try {
-      // Import into store & Supabase
       bulkImportAllAttendance(
         parsedData.sessions,
         parsedData.marks,
@@ -114,7 +131,6 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
 
       setIsCompleted(true);
 
-      // Trigger celebration confetti
       try {
         confetti({
           particleCount: 100,
@@ -136,51 +152,72 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
     }
   };
 
+  const isFrontend = parsedData?.summary.detectedFormat.includes('Frontend');
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Bulk 6-Month Attendance Upload (Excel)"
-      subtitle="Upload full-semester Excel attendance sheets with Group A & Group B daily registers"
+      title="Bulk Attendance Upload (Excel)"
+      subtitle="Upload semester attendance spreadsheets for Full Stack (Groups A & B) or Frontend Developer (React)"
       maxWidth="4xl"
     >
       <div className="space-y-6">
         {/* Upload Box */}
         {!parsedData && !isCompleted && (
-          <div
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-            className="border-2 border-dashed border-slate-700 hover:border-emerald-500/80 bg-slate-900/60 hover:bg-slate-900/90 rounded-2xl p-8 text-center transition-all cursor-pointer group"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-              <FileSpreadsheet className="w-8 h-8" />
-            </div>
-
-            <h3 className="text-base font-bold text-white mb-1">
-              {isParsing ? 'Analyzing Excel Sheets...' : 'Select or Drag & Drop Attendance Excel File'}
-            </h3>
-            <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
-              Works directly with <strong className="text-slate-200 font-mono">Students Attendance Record - 2026.xlsx</strong> containing April, May, June, July, August, September sheets.
-            </p>
-
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={isParsing}
-              leftIcon={<UploadCloud className="w-4 h-4 text-emerald-400" />}
+          <div className="space-y-3">
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              className="border-2 border-dashed border-slate-700 hover:border-emerald-500/80 bg-slate-900/60 hover:bg-slate-900/90 rounded-2xl p-8 text-center transition-all cursor-pointer group"
+              onClick={() => fileInputRef.current?.click()}
             >
-              {isParsing ? 'Reading Excel File...' : 'Choose Excel (.xlsx) File'}
-            </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                <FileSpreadsheet className="w-8 h-8" />
+              </div>
+
+              <h3 className="text-base font-bold text-white mb-1">
+                {isParsing ? 'Analyzing Excel Sheets...' : 'Select or Drag & Drop Attendance Excel File'}
+              </h3>
+              <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
+                Supports <strong className="text-emerald-300 font-mono">React - Students Attendance.xlsx</strong> (May–Sep) and <strong className="text-blue-300 font-mono">Full Stack Group A & B</strong> workbooks.
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={isParsing}
+                  leftIcon={<UploadCloud className="w-4 h-4 text-emerald-400" />}
+                >
+                  {isParsing ? 'Reading Excel File...' : 'Choose Excel (.xlsx) File'}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  disabled={isParsing}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLoadBundledReactFile();
+                  }}
+                  leftIcon={<Zap className="w-4 h-4 text-amber-300" />}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                >
+                  ⚡ Quick-Load Frontend (React) File
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -199,15 +236,20 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
         {parsedData && !isCompleted && (
           <div className="space-y-4 animate-fadeIn">
             {/* Header info */}
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 gap-2">
               <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                 <div>
-                  <h4 className="text-xs font-bold text-emerald-200">
-                    Workbook Verified: {selectedFile?.name || 'Students Attendance Record - 2026.xlsx'}
-                  </h4>
-                  <p className="text-[11px] text-emerald-400/80">
-                    {parsedData.summary.totalSheets} Months Detected &bull; Both Group A and Group B Mapped
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-bold text-emerald-200">
+                      Workbook Verified: {selectedFileName || 'Attendance Record.xlsx'}
+                    </h4>
+                    <Badge variant={isFrontend ? 'emerald' : 'blue'}>
+                      {isFrontend ? '⚛️ Frontend Developer (React)' : '👨‍💻 Full Stack Developer'}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-emerald-400/80 mt-0.5">
+                    {parsedData.summary.totalSheets} Months Detected &bull; {parsedData.summary.totalStudents} Trainees &bull; {parsedData.summary.totalSessions} Sessions Ready
                   </p>
                 </div>
               </div>
@@ -216,7 +258,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                 size="sm"
                 onClick={() => {
                   setParsedData(null);
-                  setSelectedFile(null);
+                  setSelectedFileName(null);
                 }}
               >
                 Change File
@@ -247,7 +289,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                   {parsedData.summary.totalStudents} <span className="text-xs font-normal text-slate-400">trainees</span>
                 </div>
                 <div className="text-[10px] text-emerald-400 mt-1">
-                  Group A: {parsedData.summary.groupACount} | Group B: {parsedData.summary.groupBCount}
+                  {isFrontend ? '12 Trainees Enrolled' : `GA: ${parsedData.summary.groupACount} | GB: ${parsedData.summary.groupBCount}`}
                 </div>
               </div>
 
@@ -260,7 +302,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                   {parsedData.summary.totalSessions} <span className="text-xs font-normal text-slate-400">dates</span>
                 </div>
                 <div className="text-[10px] text-purple-400 mt-1">
-                  With Subjects & Daily Dates
+                  With Daily Subjects & Dates
                 </div>
               </div>
 
@@ -282,22 +324,30 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
             <div className="rounded-xl border border-slate-800 overflow-hidden">
               <div className="bg-slate-900/90 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300">Semester Attendance Breakdown:</span>
-                <span className="text-[11px] text-slate-400">Group A & Group B Details</span>
+                <span className="text-[11px] text-slate-400">{parsedData.summary.detectedFormat}</span>
               </div>
               <div className="divide-y divide-slate-800/60 max-h-56 overflow-y-auto">
                 {parsedData.summary.monthBreakdown.map((m) => (
                   <div key={m.monthKey} className="px-4 py-2.5 flex items-center justify-between text-xs bg-slate-950/40 hover:bg-slate-900/50">
                     <div className="flex items-center gap-2.5">
                       <span className="font-bold text-white w-24">{m.monthName}</span>
-                      <Badge variant="blue">
-                        Group A: {m.groupASessions} sessions ({m.groupAStudents} students)
-                      </Badge>
-                      <Badge variant="purple">
-                        Group B: {m.groupBSessions} sessions ({m.groupBStudents} students)
-                      </Badge>
+                      {isFrontend ? (
+                        <Badge variant="emerald">
+                          {m.frontendSessions} sessions ({m.frontendStudents} trainees)
+                        </Badge>
+                      ) : (
+                        <>
+                          <Badge variant="blue">
+                            Group A: {m.groupASessions} sessions ({m.groupAStudents} students)
+                          </Badge>
+                          <Badge variant="purple">
+                            Group B: {m.groupBSessions} sessions ({m.groupBStudents} students)
+                          </Badge>
+                        </>
+                      )}
                     </div>
                     <span className="font-mono text-slate-300 text-[11px]">
-                      {m.groupASessions + m.groupBSessions} Total Sessions
+                      {isFrontend ? m.frontendSessions : m.groupASessions + m.groupBSessions} Total Sessions
                     </span>
                   </div>
                 ))}
@@ -314,7 +364,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                   className="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500 w-4 h-4"
                 />
                 <span>
-                  <strong>Register & Update Students in System:</strong> Ensure all 163 students exist with their assigned Group A / Group B.
+                  <strong>Register & Update Students in System:</strong> Ensure all {parsedData.summary.totalStudents} students are assigned to <strong>{isFrontend ? 'Frontend Developer' : 'Full Stack Developer'}</strong> without duplicates.
                 </span>
               </label>
             </div>
@@ -339,7 +389,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                   )
                 }
               >
-                {isImporting ? 'Importing & Syncing Attendance...' : 'Import & Apply All 6 Months Attendance'}
+                {isImporting ? 'Importing & Syncing Attendance...' : `Import & Apply ${parsedData.summary.totalSessions} Sessions (${parsedData.summary.courseType})`}
               </Button>
             </div>
           </div>
@@ -352,10 +402,10 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
               <CheckCircle2 className="w-9 h-9" />
             </div>
             <h3 className="text-lg font-extrabold text-white">
-              6 Months Attendance Imported Successfully!
+              Attendance Imported & Synced Successfully!
             </h3>
             <p className="text-xs text-slate-300 max-w-md mx-auto">
-              All 138 class sessions, 163 students, and thousands of daily P/A marks have been applied and synced to Supabase.
+              {parsedData ? `${parsedData.summary.totalSessions} sessions and daily P/A marks for ${parsedData.summary.totalStudents} students have been saved.` : 'All attendance sessions and marks have been applied.'}
             </p>
           </div>
         )}

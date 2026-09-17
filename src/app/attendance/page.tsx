@@ -83,22 +83,32 @@ export default function AttendancePage() {
   // Dropout-month awareness: a dropout student is only shown in the month they dropped out
   // and all months BEFORE that. They are hidden from subsequent months.
   const groupStudents = useMemo(() => {
-    return students.filter((s) => {
+    const seen = new Set<string>();
+    const list = students.filter((s) => {
       // Hide dummy students created via Blossom Excel import from attendance view
       if (s.isDummy) return false;
 
+      const cleanUt = (s.utNumber || '').trim().toUpperCase();
+      if (!cleanUt) return false;
+
+      // Prevent duplicate trainees from appearing twice (e.g. Ajanthas Anoja)
+      if (seen.has(cleanUt)) return false;
+
       // If this student is a dropout, check whether they should still appear in the selected month.
       // Rule: show them only if their dropoutMonth >= selectedMonthString
-      // (i.e. they dropped out in this month or later → still in the list for this month)
       if (s.currentStatus === 'Dropout') {
-        const dropoutRecord = dropouts.find((d) => d.studentId === s.id);
-        if (!dropoutRecord) return false; // no record found → hide (safe fallback)
-        // dropoutMonth e.g. '2026-04', selectedMonthString e.g. '2026-05'
-        // If dropoutMonth < selectedMonthString → already gone → hide
-        if (dropoutRecord.dropoutMonth < selectedMonthString) return false;
+        const dropoutRecord = dropouts.find(
+          (d) => d.studentId === s.id || (d.utNumber && d.utNumber.trim().toUpperCase() === cleanUt)
+        );
+        if (dropoutRecord && dropoutRecord.dropoutMonth < selectedMonthString) return false;
       }
 
-      const isFrontend = s.courseName === 'Frontend Developer' || s.courseId === 'Frontend Developer';
+      // Explicitly protect UT011700 as Full Stack (never Frontend)
+      const isFrontend =
+        cleanUt !== 'UT011700' &&
+        (s.courseName === 'Frontend Developer' ||
+          s.courseId === 'Frontend Developer' ||
+          s.group === 'Frontend Developer');
       const isFullStack = !isFrontend;
 
       let matchesGroup = false;
@@ -114,8 +124,16 @@ export default function AttendancePage() {
       const matchesSearch =
         s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.utNumber.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesGroup && matchesBatch && matchesSearch;
+
+      if (matchesGroup && matchesBatch && matchesSearch) {
+        seen.add(cleanUt);
+        return true;
+      }
+      return false;
     });
+
+    // Stably sort trainees by UT number so table rows are consistent
+    return list.sort((a, b) => a.utNumber.localeCompare(b.utNumber));
   }, [students, dropouts, selectedGroup, selectedBatch, searchQuery, selectedMonthString]);
 
   const monthSessions = useMemo(() => {

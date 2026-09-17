@@ -54,7 +54,7 @@ export interface Student {
   batchName: string;
   courseId: string;
   courseName: string;
-  group?: 'Group A' | 'Group B' | 'A' | 'B';
+  group?: 'Group A' | 'Group B' | 'A' | 'B' | 'Frontend Developer' | string;
   photoUrl?: string;
   isBlossomTrust: boolean;
   blossomAmount?: number;

@@ -2,20 +2,25 @@ import * as XLSX from 'xlsx';
 import { AttendanceSession, AttendanceMark, MonthlyAttendance, Student } from './types';
 
 export interface AttendanceParseSummary {
+  detectedFormat: 'Full Stack Developer (Group A & B)' | 'Frontend Developer (React)' | 'Mixed / Custom';
+  courseType: 'Full Stack Developer' | 'Frontend Developer' | 'All';
   totalSheets: number;
   sheetNames: string[];
   totalSessions: number;
   totalStudents: number;
   groupACount: number;
   groupBCount: number;
+  frontendCount: number;
   totalMonthlyRecords: number;
   monthBreakdown: Array<{
     monthName: string;
     monthKey: string;
     groupASessions: number;
     groupBSessions: number;
+    frontendSessions: number;
     groupAStudents: number;
     groupBStudents: number;
+    frontendStudents: number;
   }>;
 }
 
@@ -44,19 +49,32 @@ const MONTH_MAP: Record<string, string> = {
 
 const parseDateStr = (rawDate: unknown, defaultMonth: string): { isoDate: string; displayDate: string } => {
   if (!rawDate) return { isoDate: `${defaultMonth}-01`, displayDate: '' };
+
+  // If Excel numeric date
+  if (typeof rawDate === 'number' && rawDate > 40000) {
+    const d = new Date(Math.round((rawDate - 25569) * 86400 * 1000));
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = String(d.getFullYear());
+    return { isoDate: `${year}-${month}-${day}`, displayDate: `${day}.${month}.${year}` };
+  }
+
   const str = String(rawDate).trim();
   const match = str.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);
   if (match) {
     const day = match[1].padStart(2, '0');
     const month = match[2].padStart(2, '0');
     const year = match[3];
-    return { isoDate: `${year}-${month}-${day}`, displayDate: str };
+    return { isoDate: `${year}-${month}-${day}`, displayDate: `${day}.${month}.${year}` };
   }
   return { isoDate: `${defaultMonth}-01`, displayDate: str };
 };
 
 /**
- * Parses a 6-month or multi-month attendance Excel workbook containing Group A & Group B sheets
+ * Parses multi-month attendance Excel workbooks:
+ * Supports:
+ * 1. Full Stack Developer (Group A & Group B sections per sheet)
+ * 2. Frontend Developer / React (Single group table per sheet, row 2 subjects, row 3 dates, row 4+ students)
  */
 export const parseAttendanceExcel = async (
   fileData: ArrayBuffer | Uint8Array
@@ -69,6 +87,9 @@ export const parseAttendanceExcel = async (
   const studentsMap = new Map<string, Student>();
   const monthBreakdown: AttendanceParseSummary['monthBreakdown'] = [];
 
+  let hasGroupSections = false;
+  let hasFrontendTable = false;
+
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) continue;
@@ -77,36 +98,75 @@ export const parseAttendanceExcel = async (
     if (!rows || rows.length < 4) continue;
 
     const monthKey = sheetName.toLowerCase().trim();
-    const ym = MONTH_MAP[monthKey] || `2026-04`;
+    const ym = MONTH_MAP[monthKey] || `2026-05`;
     const year = parseInt(ym.split('-')[0], 10) || 2026;
 
     let gAHeader = -1;
     let gBHeader = -1;
+    let feHeader = -1;
 
     rows.forEach((r, idx) => {
       const text = (r[0] || '').toString();
       if (/GROUP\s*["“']\s*A\s*["”']/i.test(text)) gAHeader = idx;
       if (/GROUP\s*["“']\s*B\s*["”']/i.test(text)) gBHeader = idx;
+
+      // Check for direct header: row contains "UT NO" or "S . NO"
+      if (feHeader === -1 && r.some((c: any) => typeof c === 'string' && (c.includes('UT NO') || c.includes('UT_NO')))) {
+        feHeader = idx;
+      }
     });
 
     let gASessionCount = 0;
     let gBSessionCount = 0;
+    let feSessionCount = 0;
     let gAStudentCount = 0;
     let gBStudentCount = 0;
+    let feStudentCount = 0;
 
-    const parseGroup = (headerRow: number, endRow: number, groupName: 'Group A' | 'Group B', groupCode: string) => {
+    // Helper to parse a group
+    const parseTableBlock = (
+      headerRow: number,
+      endRow: number,
+      groupName: 'Group A' | 'Group B' | 'Frontend Developer',
+      groupCode: string,
+      courseId: string,
+      courseName: string
+    ) => {
       if (headerRow === -1) return 0;
-      const subjects = rows[headerRow + 2] || [];
-      const dates = rows[headerRow + 3] || [];
       const sessionCols: Array<{ col: number; session: AttendanceSession }> = [];
 
-      for (let c = 3; c < dates.length; c++) {
-        const d = dates[c];
+      // Determine date and subject row index: check which row actually contains dates
+      let actualDateRow = headerRow + 2;
+      let actualSubjectRow = headerRow + 1;
+
+      const isRowDate = (rowArr: any[]) =>
+        rowArr && rowArr.some((c) => (typeof c === 'string' && /\d{1,2}[./-]\d{1,2}[./-]\d{4}/.test(c)) || (typeof c === 'number' && c > 40000));
+
+      if (isRowDate(rows[headerRow + 2])) {
+        actualDateRow = headerRow + 2;
+        actualSubjectRow = headerRow + 1;
+      } else if (isRowDate(rows[headerRow + 3])) {
+        actualDateRow = headerRow + 3;
+        actualSubjectRow = headerRow + 2;
+      } else if (isRowDate(rows[headerRow + 1])) {
+        actualDateRow = headerRow + 1;
+        actualSubjectRow = headerRow;
+      }
+
+      const activeDates = rows[actualDateRow] || [];
+      const activeSubjects = rows[actualSubjectRow] || [];
+
+      for (let c = 3; c < activeDates.length; c++) {
+        const d = activeDates[c];
         if (!d) continue;
         const str = String(d).trim();
-        if (['L', 'A', 'P', 'p', 'total', '%', '#DIV/0!'].includes(str)) break;
-        const subj = (subjects[c] || '').toString().trim() || 'Class Session';
-        const { isoDate, displayDate } = parseDateStr(str, ym);
+        if (['L', 'A', 'P', 'p', 'total', 'TOTAL', '%', '#DIV/0!', 'Late', 'Absent', 'Present', 'Sessions', 'Ratio'].includes(str)) break;
+
+        const isValidDateStr = /\d{1,2}[./-]\d{1,2}[./-]\d{4}/.test(str) || (typeof d === 'number' && d > 40000);
+        if (!isValidDateStr) continue;
+
+        const subj = (activeSubjects[c] || '').toString().trim() || 'Daily Class';
+        const { isoDate, displayDate } = parseDateStr(d, ym);
         const sessionId = `SES-${ym}-${groupCode}-${c}`;
 
         const sessionObj: AttendanceSession = {
@@ -124,17 +184,15 @@ export const parseAttendanceExcel = async (
         allMarks[sessionId] = {};
       }
 
-      let parsedStudentsInGroup = 0;
-
-      for (let r = headerRow + 4; r < endRow; r++) {
+      for (let r = actualDateRow + 1; r < endRow; r++) {
         const row = rows[r];
         if (!row) continue;
         const sNo = row[0];
         const utNo = (row[1] || '').toString().trim();
         const name = (row[2] || '').toString().trim();
-        if (!utNo || !name || typeof sNo !== 'number') continue;
+        if (!utNo || !name) continue;
+        if (typeof utNo === 'string' && !utNo.toUpperCase().startsWith('UT')) continue;
 
-        parsedStudentsInGroup++;
         const normUt = utNo.toUpperCase();
         const studentId = `STU-${normUt}`;
 
@@ -144,8 +202,8 @@ export const parseAttendanceExcel = async (
             utNumber: normUt,
             fullName: name,
             group: groupName,
-            courseId: 'CRS-01',
-            courseName: 'Software Development',
+            courseId: courseId,
+            courseName: courseName,
             batchId: 'BAT-2026',
             batchName: 'Batch 2026',
             currentStatus: 'Active',
@@ -165,6 +223,13 @@ export const parseAttendanceExcel = async (
             createdAt: new Date().toISOString().slice(0, 10),
             updatedAt: new Date().toISOString().slice(0, 10),
           });
+        } else {
+          const existing = studentsMap.get(normUt)!;
+          if (groupName === 'Frontend Developer') {
+            existing.courseId = 'Frontend Developer';
+            existing.courseName = 'Frontend Developer';
+            existing.group = 'Frontend Developer';
+          }
         }
 
         let presentCount = 0;
@@ -200,7 +265,7 @@ export const parseAttendanceExcel = async (
           utNumber: normUt,
           studentName: name,
           batchId: 'BAT-2026',
-          courseName: 'Software Development',
+          courseName: courseName,
           year,
           month: ym,
           attendancePercentage: pct,
@@ -213,17 +278,30 @@ export const parseAttendanceExcel = async (
       return sessionCols.length;
     };
 
-    const gAEnd = gBHeader !== -1 ? gBHeader : rows.length;
-    gASessionCount = parseGroup(gAHeader, gAEnd, 'Group A', 'GA');
+    if (gAHeader !== -1 || gBHeader !== -1) {
+      // Format 1: Full Stack with Group A and Group B
+      hasGroupSections = true;
+      const gAEnd = gBHeader !== -1 ? gBHeader : rows.length;
+      gASessionCount = parseTableBlock(gAHeader, gAEnd, 'Group A', 'GA', 'CRS-TIC-01', 'Full-Stack Web Development');
 
-    for (let r = gAHeader + 4; r < gAEnd; r++) {
-      if (rows[r] && typeof rows[r][0] === 'number' && rows[r][1]) gAStudentCount++;
-    }
+      for (let r = gAHeader + 4; r < gAEnd; r++) {
+        if (rows[r] && typeof rows[r][0] === 'number' && rows[r][1]) gAStudentCount++;
+      }
 
-    if (gBHeader !== -1) {
-      gBSessionCount = parseGroup(gBHeader, rows.length, 'Group B', 'GB');
-      for (let r = gBHeader + 4; r < rows.length; r++) {
-        if (rows[r] && typeof rows[r][0] === 'number' && rows[r][1]) gBStudentCount++;
+      if (gBHeader !== -1) {
+        gBSessionCount = parseTableBlock(gBHeader, rows.length, 'Group B', 'GB', 'CRS-TIC-01', 'Full-Stack Web Development');
+        for (let r = gBHeader + 4; r < rows.length; r++) {
+          if (rows[r] && typeof rows[r][0] === 'number' && rows[r][1]) gBStudentCount++;
+        }
+      }
+    } else if (feHeader !== -1) {
+      // Format 2: Frontend Developer / React (Single group per month)
+      hasFrontendTable = true;
+      feSessionCount = parseTableBlock(feHeader, rows.length, 'Frontend Developer', 'FE', 'Frontend Developer', 'Frontend Developer');
+      for (let r = feHeader + 3; r < rows.length; r++) {
+        if (rows[r] && rows[r][1] && String(rows[r][1]).toUpperCase().startsWith('UT')) {
+          feStudentCount++;
+        }
       }
     }
 
@@ -232,25 +310,43 @@ export const parseAttendanceExcel = async (
       monthKey: ym,
       groupASessions: gASessionCount,
       groupBSessions: gBSessionCount,
+      frontendSessions: feSessionCount,
       groupAStudents: gAStudentCount,
       groupBStudents: gBStudentCount,
+      frontendStudents: feStudentCount,
     });
   }
 
   let groupACount = 0;
   let groupBCount = 0;
+  let frontendCount = 0;
   studentsMap.forEach((stu) => {
     if (stu.group === 'Group A') groupACount++;
-    else groupBCount++;
+    else if (stu.group === 'Group B') groupBCount++;
+    else if (stu.group === 'Frontend Developer' || stu.courseId === 'Frontend Developer') frontendCount++;
   });
 
+  let detectedFormat: AttendanceParseSummary['detectedFormat'] = 'Mixed / Custom';
+  let courseType: AttendanceParseSummary['courseType'] = 'All';
+
+  if (hasFrontendTable && !hasGroupSections) {
+    detectedFormat = 'Frontend Developer (React)';
+    courseType = 'Frontend Developer';
+  } else if (hasGroupSections && !hasFrontendTable) {
+    detectedFormat = 'Full Stack Developer (Group A & B)';
+    courseType = 'Full Stack Developer';
+  }
+
   const summary: AttendanceParseSummary = {
+    detectedFormat,
+    courseType,
     totalSheets: workbook.SheetNames.length,
     sheetNames: workbook.SheetNames,
     totalSessions: allSessions.length,
     totalStudents: studentsMap.size,
     groupACount,
     groupBCount,
+    frontendCount,
     totalMonthlyRecords: allMonthly.length,
     monthBreakdown,
   };
