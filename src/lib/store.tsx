@@ -439,6 +439,29 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     }
     localStorage.setItem(STORAGE_KEYS.THEME, theme);
 
+    // Always keep localStorage backup as immediate cache & offline fallback
+    try {
+      localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+      localStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(courses));
+      localStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(batches));
+      localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(monthlyAttendance));
+      localStorage.setItem(STORAGE_KEYS.ATT_SESSIONS, JSON.stringify(attendanceSessions));
+      localStorage.setItem(STORAGE_KEYS.ATT_MARKS, JSON.stringify(attendanceMarks));
+      localStorage.setItem(STORAGE_KEYS.DAILY_LOGS, JSON.stringify(dailyTimeLogs));
+      localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(blossomPayments));
+      localStorage.setItem(STORAGE_KEYS.DROPOUTS, JSON.stringify(dropouts));
+      localStorage.setItem(STORAGE_KEYS.ASSESSMENTS, JSON.stringify(assessments));
+      localStorage.setItem(STORAGE_KEYS.ASSESSMENT_MARKS, JSON.stringify(assessmentMarks));
+      localStorage.setItem(STORAGE_KEYS.COMPLETIONS, JSON.stringify(completions));
+      localStorage.setItem(STORAGE_KEYS.OUTCOMES, JSON.stringify(outcomes));
+      localStorage.setItem(STORAGE_KEYS.ABSENCES, JSON.stringify(absenceRequests));
+      localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(auditLogs));
+      localStorage.setItem(STORAGE_KEYS.ORG_PROFILE, JSON.stringify(orgProfile));
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    } catch (e) {
+      console.warn('localStorage backup error:', e);
+    }
+
     if (checkIsSupabaseConfigured()) {
       const timer = setTimeout(() => {
         syncAllToSupabase({
@@ -459,24 +482,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         });
       }, 2000);
       return () => clearTimeout(timer);
-    } else {
-      localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
-      localStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(courses));
-      localStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(batches));
-      localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(monthlyAttendance));
-      localStorage.setItem(STORAGE_KEYS.ATT_SESSIONS, JSON.stringify(attendanceSessions));
-      localStorage.setItem(STORAGE_KEYS.ATT_MARKS, JSON.stringify(attendanceMarks));
-      localStorage.setItem(STORAGE_KEYS.DAILY_LOGS, JSON.stringify(dailyTimeLogs));
-      localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(blossomPayments));
-      localStorage.setItem(STORAGE_KEYS.DROPOUTS, JSON.stringify(dropouts));
-      localStorage.setItem(STORAGE_KEYS.ASSESSMENTS, JSON.stringify(assessments));
-      localStorage.setItem(STORAGE_KEYS.ASSESSMENT_MARKS, JSON.stringify(assessmentMarks));
-      localStorage.setItem(STORAGE_KEYS.COMPLETIONS, JSON.stringify(completions));
-      localStorage.setItem(STORAGE_KEYS.OUTCOMES, JSON.stringify(outcomes));
-      localStorage.setItem(STORAGE_KEYS.ABSENCES, JSON.stringify(absenceRequests));
-      localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(auditLogs));
-      localStorage.setItem(STORAGE_KEYS.ORG_PROFILE, JSON.stringify(orgProfile));
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
     }
   }, [
     students,

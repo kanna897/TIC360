@@ -14,12 +14,14 @@ const chunkArray = <T,>(arr: T[], size: number): T[][] => {
 };
 
 /** Fire-and-forget: logs errors but never throws. */
-const safeUpsert = async (table: string, rows: object[]) => {
+const safeUpsert = async (table: string, rows: object[], options?: { onConflict?: string }) => {
   if (!rows.length) return;
   try {
     const chunks = chunkArray(rows, 500);
     for (const chunk of chunks) {
-      const { error } = await supabase.from(table).upsert(chunk as never);
+      const { error } = options?.onConflict
+        ? await supabase.from(table).upsert(chunk as never, { onConflict: options.onConflict })
+        : await supabase.from(table).upsert(chunk as never);
       if (error) console.warn(`[supabaseSync] upsert ${table}:`, error.message);
     }
   } catch (e) {
@@ -78,9 +80,21 @@ const toDbBatch = (b: Batch) => ({
   status: b.status || 'Active',
 });
 
+const VALID_BATCH_IDS = new Set(['BATCH-2026-A', 'BATCH-2026-B', 'BATCH-2026-C']);
+
+const sanitizeBatchId = (batchId?: string | null): string | null => {
+  if (!batchId) return null;
+  const upper = batchId.trim().toUpperCase();
+  if (VALID_BATCH_IDS.has(upper)) return upper;
+  if (upper === 'B01' || upper === 'BAT-2026' || upper === 'GROUP A') return 'BATCH-2026-A';
+  if (upper === 'B02' || upper === 'GROUP B') return 'BATCH-2026-B';
+  if (upper === 'B03' || upper === 'GROUP C') return 'BATCH-2026-C';
+  return null;
+};
+
 const toDbAttendanceSession = (s: AttendanceSession) => ({
   id: s.id,
-  batch_id: s.batchId || null,
+  batch_id: sanitizeBatchId(s.batchId),
   group: s.group || null,
   month: s.month,
   date: s.date,
@@ -91,7 +105,7 @@ const toDbAttendanceSession = (s: AttendanceSession) => ({
 const toDbMonthlyAttendance = (m: MonthlyAttendance) => ({
   id: m.id,
   student_id: m.studentId,
-  batch_id: m.batchId || null,
+  batch_id: sanitizeBatchId(m.batchId),
   year: m.year,
   month: m.month,
   attendance_percentage: m.attendancePercentage,
@@ -547,7 +561,7 @@ export const syncAllToSupabase = async (state: {
       });
     });
   });
-  await safeUpsert('attendance_marks', marksArray);
+  await safeUpsert('attendance_marks', marksArray, { onConflict: 'session_id,student_id' });
 
   await Promise.all([
     safeUpsert('attendance', state.monthlyAttendance.map(toDbMonthlyAttendance)),
@@ -610,7 +624,7 @@ export const syncAttendanceMark = (sessionId: string, studentId: string, mark: A
     session_id: sessionId,
     student_id: studentId,
     mark,
-  }]);
+  }], { onConflict: 'session_id,student_id' });
 
 export const syncAttendanceMarksForSession = (sessionId: string, marks: Record<string, AttendanceMark>) => {
   const rows = Object.entries(marks).map(([studentId, mark]) => ({
@@ -619,7 +633,7 @@ export const syncAttendanceMarksForSession = (sessionId: string, marks: Record<s
     student_id: studentId,
     mark,
   }));
-  return safeUpsert('attendance_marks', rows);
+  return safeUpsert('attendance_marks', rows, { onConflict: 'session_id,student_id' });
 };
 
 export const syncMonthlyAttendance = (records: MonthlyAttendance[]) =>
@@ -735,7 +749,7 @@ export const resetSeedDataInSupabase = async (state: {
       });
     });
   });
-  if (marksArray.length) await safeUpsert('attendance_marks', marksArray);
+  if (marksArray.length) await safeUpsert('attendance_marks', marksArray, { onConflict: 'session_id,student_id' });
 
   await Promise.all([
     safeUpsert('attendance', state.monthlyAttendance.map(toDbMonthlyAttendance)),
