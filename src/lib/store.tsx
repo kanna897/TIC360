@@ -1127,8 +1127,15 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     if (sessionCount > 0) {
       const attendanceToRecord = relevantStudents.map((stu) => {
         let presentCount = 0;
+        const dropoutRec = dropouts.find(
+          (d) => d.studentId === stu.id || (d.utNumber && d.utNumber.toUpperCase() === stu.utNumber.toUpperCase())
+        );
+        const isDropoutInThisMonth = Boolean(
+          dropoutRec && dropoutRec.dropoutMonth && month.substring(0, 7) === dropoutRec.dropoutMonth.substring(0, 7)
+        );
+
         sessions.forEach((ses) => {
-          const m = marks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
+          const m = marks[ses.id]?.[stu.id] ?? (isDropoutInThisMonth ? 'A' : 'P');
           if (m === 'P') presentCount += 1;
         });
 
@@ -1540,8 +1547,15 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       
       const newMonthly = students.map(stu => {
         let pCount = 0;
+        const dropoutRec = dropouts.find(
+          (d) => d.studentId === stu.id || (d.utNumber && d.utNumber.toUpperCase() === stu.utNumber.toUpperCase())
+        );
+        const isDropoutInThisMonth = Boolean(
+          dropoutRec && dropoutRec.dropoutMonth && month.substring(0, 7) === dropoutRec.dropoutMonth.substring(0, 7)
+        );
+
         newSessions.forEach(ses => {
-          const m = newMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
+          const m = newMarks[ses.id]?.[stu.id] ?? (isDropoutInThisMonth ? 'A' : 'P');
           if (m === 'P') pCount += 1;
         });
         

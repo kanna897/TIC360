@@ -36,7 +36,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { exportToCSV, exportToExcel, formatMonthName } from '@/lib/utils';
+import { exportToCSV, exportToExcel, formatMonthName, getStudentDropoutStatusInMonth } from '@/lib/utils';
 import { FingerprintUploadModal } from '@/components/attendance/FingerprintUploadModal';
 import { BulkAttendanceUploadModal } from '@/components/attendance/BulkAttendanceUploadModal';
 
@@ -97,14 +97,10 @@ export default function AttendancePage() {
       // Prevent duplicate trainees from appearing twice (e.g. Ajanthas Anoja)
       if (seen.has(cleanUt)) return false;
 
-      // If this student is a dropout, check whether they should still appear in the selected month.
-      // Rule: show them only if their dropoutMonth >= selectedMonthString
-      if (s.currentStatus === 'Dropout') {
-        const dropoutRecord = dropouts.find(
-          (d) => d.studentId === s.id || (d.utNumber && d.utNumber.trim().toUpperCase() === cleanUt)
-        );
-        if (dropoutRecord && dropoutRecord.dropoutMonth < selectedMonthString) return false;
-      }
+      // Month-specific dropout check:
+      // If the selected month is strictly AFTER the dropout month, completely hide the student.
+      const { isAfterDropoutMonth } = getStudentDropoutStatusInMonth(s, dropouts, selectedMonthString);
+      if (isAfterDropoutMonth) return false;
 
       // Explicitly protect UT011700 as Full Stack (never Frontend)
       const isFrontend =
@@ -253,8 +249,10 @@ export default function AttendancePage() {
       let aCount = 0;
       let lCount = 0;
 
+      const { isDropoutInMonth } = getStudentDropoutStatusInMonth(stu, dropouts, selectedMonthString);
+
       monthSessions.forEach((ses) => {
-        const mark = attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
+        const mark = attendanceMarks[ses.id]?.[stu.id] ?? (isDropoutInMonth ? 'A' : 'P');
         row[`${ses.subject}\n${ses.displayDate}`] = mark;
         if (mark === 'P') pCount += 1;
         else if (mark === 'A') aCount += 1;
@@ -282,7 +280,8 @@ export default function AttendancePage() {
     monthSessions.forEach((ses) => {
       let presentSum = 0;
       groupStudents.forEach((stu) => {
-        const mark = attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
+        const { isDropoutInMonth } = getStudentDropoutStatusInMonth(stu, dropouts, selectedMonthString);
+        const mark = attendanceMarks[ses.id]?.[stu.id] ?? (isDropoutInMonth ? 'A' : 'P');
         if (mark === 'P') presentSum += 1;
       });
       summaryRow[`${ses.subject}\n${ses.displayDate}`] = presentSum;
@@ -303,8 +302,10 @@ export default function AttendancePage() {
       let aCount = 0;
       let lCount = 0;
 
+      const { isDropoutInMonth } = getStudentDropoutStatusInMonth(stu, dropouts, selectedMonthString);
+
       monthSessions.forEach((ses) => {
-        const mark = attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
+        const mark = attendanceMarks[ses.id]?.[stu.id] ?? (isDropoutInMonth ? 'A' : 'P');
         if (mark === 'P') pCount += 1;
         else if (mark === 'A') aCount += 1;
         else if (mark === 'L') lCount += 1;
@@ -695,12 +696,14 @@ export default function AttendancePage() {
                 </tr>
               ) : (
                 groupStudents.map((stu, index) => {
+                  const { isDropoutInMonth } = getStudentDropoutStatusInMonth(stu, dropouts, selectedMonthString);
+
                   let pCount = 0;
                   let aCount = 0;
                   let lCount = 0;
 
                   monthSessions.forEach((ses) => {
-                    const mark = attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
+                    const mark = attendanceMarks[ses.id]?.[stu.id] ?? (isDropoutInMonth ? 'A' : 'P');
                     if (mark === 'P') pCount += 1;
                     else if (mark === 'A') aCount += 1;
                     else if (mark === 'L') lCount += 1;
@@ -721,16 +724,16 @@ export default function AttendancePage() {
                       </td>
 
                       {/* UT NO */}
-                      <td className={`py-2 px-3 font-black text-sm font-mono border-r border-slate-800 whitespace-nowrap sticky left-10 bg-slate-950 group-hover:bg-slate-900 z-10 tracking-wide ${stu.currentStatus === 'Dropout' ? 'text-rose-500 line-through decoration-rose-500/50' : 'text-cyan-300'}`}>
+                      <td className={`py-2 px-3 font-black text-sm font-mono border-r border-slate-800 whitespace-nowrap sticky left-10 bg-slate-950 group-hover:bg-slate-900 z-10 tracking-wide ${isDropoutInMonth ? 'text-rose-500 line-through decoration-rose-500/50' : 'text-cyan-300'}`}>
                         {stu.utNumber}
                       </td>
 
                       {/* STUDENT'S NAME */}
-                      <td className={`py-2 px-4 whitespace-nowrap font-extrabold text-sm transition-colors border-r border-slate-800 sticky left-36 bg-slate-950 group-hover:bg-slate-900 z-10 shadow-lg ${stu.currentStatus === 'Dropout' ? 'text-rose-400 group-hover:text-rose-300' : 'text-white group-hover:text-emerald-300'}`}>
+                      <td className={`py-2 px-4 whitespace-nowrap font-extrabold text-sm transition-colors border-r border-slate-800 sticky left-36 bg-slate-950 group-hover:bg-slate-900 z-10 shadow-lg ${isDropoutInMonth ? 'text-rose-400 group-hover:text-rose-300' : 'text-white group-hover:text-emerald-300'}`}>
                         <div className="flex items-center justify-between gap-2">
-                          <span className={stu.currentStatus === 'Dropout' ? 'line-through decoration-rose-500/50' : ''}>{stu.fullName}</span>
+                          <span className={isDropoutInMonth ? 'line-through decoration-rose-500/50' : ''}>{stu.fullName}</span>
                           <div className="flex gap-1 items-center">
-                            {stu.currentStatus === 'Dropout' && (
+                            {isDropoutInMonth && (
                               <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-400 border border-rose-500/30 font-extrabold">
                                 DROPOUT
                               </span>
@@ -746,7 +749,7 @@ export default function AttendancePage() {
 
                       {/* SESSION P/A CELLS */}
                       {monthSessions.map((ses) => {
-                        const mark = attendanceMarks[ses.id]?.[stu.id] ?? (stu.currentStatus === 'Dropout' ? 'A' : 'P');
+                        const mark = attendanceMarks[ses.id]?.[stu.id] ?? (isDropoutInMonth ? 'A' : 'P');
 
                         // Find leave request matching this student & session date
                         const matchingAbsence = absenceRequests.find((r) => {

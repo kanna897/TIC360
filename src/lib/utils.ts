@@ -206,3 +206,57 @@ export function calculateBlossomComparison(
     },
   };
 }
+
+/**
+ * Determine a student's dropout status for a specific target month (YYYY-MM).
+ *
+ * Rules:
+ * 1. Before dropout month (targetMonth < dropoutMonth): Treat as normal ACTIVE student.
+ * 2. Exact dropout month (targetMonth === dropoutMonth): Treat as DROPOUT (show badge & line-through).
+ * 3. After dropout month (targetMonth > dropoutMonth): Completely HIDE student from attendance list.
+ */
+export function getStudentDropoutStatusInMonth(
+  stu: { id: string; utNumber?: string; currentStatus?: string },
+  dropouts: DropoutRecord[],
+  targetMonth: string // 'YYYY-MM'
+) {
+  const cleanUt = (stu.utNumber || '').trim().toUpperCase();
+  const dropoutRecord = dropouts.find(
+    (d) =>
+      (d.studentId && d.studentId === stu.id) ||
+      (d.utNumber && d.utNumber.trim().toUpperCase() === cleanUt)
+  );
+
+  if (!dropoutRecord) {
+    return {
+      hasDropoutRecord: false,
+      dropoutMonth: null,
+      isBeforeDropoutMonth: false,
+      isDroppedOutThisMonth: false,
+      isAfterDropoutMonth: false,
+      isDropoutInMonth: false,
+      isActiveInMonth: true,
+    };
+  }
+
+  // Normalize formats: YYYY-MM
+  const rawMonth = (dropoutRecord.dropoutMonth || '').trim();
+  const dropoutMonth = rawMonth.length >= 7 ? rawMonth.substring(0, 7) : rawMonth;
+  const currentViewMonth = targetMonth.trim().substring(0, 7);
+
+  const isBeforeDropoutMonth = Boolean(dropoutMonth && currentViewMonth < dropoutMonth);
+  const isDroppedOutThisMonth = Boolean(dropoutMonth && currentViewMonth === dropoutMonth);
+  const isAfterDropoutMonth = Boolean(dropoutMonth && currentViewMonth > dropoutMonth);
+
+  return {
+    hasDropoutRecord: true,
+    dropoutMonth,
+    isBeforeDropoutMonth,
+    isDroppedOutThisMonth,
+    isAfterDropoutMonth,
+    // Visual badge and styling only active in the exact dropout month!
+    isDropoutInMonth: isDroppedOutThisMonth,
+    // In any month strictly before the dropout month, they are fully ACTIVE:
+    isActiveInMonth: isBeforeDropoutMonth || !dropoutRecord,
+  };
+}
