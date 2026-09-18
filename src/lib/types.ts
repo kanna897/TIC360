@@ -316,3 +316,28 @@ export interface AbsenceRequest {
   status: 'Submitted' | 'Approved' | 'Rejected';
   createdAt: string;
 }
+
+export interface CareerSurveyResponse {
+  id: string;
+  studentId: string;
+  utNumber: string;
+  studentName: string;
+  isBlossomTrust: boolean;
+  outcomeStatus: string;
+  outcomeDate: string;
+  companyOrInstitution?: string;
+  workingCompanyName?: string;
+  jobTitle?: string;
+  salary?: number;
+  currentStatus?: string;
+  courseCompletionStatus?: string;
+  courseSpecialization?: string;
+  employmentStatus?: string;
+  otherStatus?: string;
+  workLocation?: string;
+  linkedinUrl?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  remarks?: string;
+  createdAt: string;
+}

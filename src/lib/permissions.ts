@@ -57,6 +57,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
       '/stickers',
       '/finance',
       '/courses',
+      '/graduate-survey',
+      '/absentees-report',
+      '/career-survey-report',
       '/login',
     ],
     navItems: [
@@ -70,6 +73,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
       { label: 'Completions & Outcomes', href: '/outcomes', icon: GraduationCap, badge: null },
       { label: 'Comprehensive Reports', href: '/reports', icon: BarChart3, badge: '9 Reports' },
       { label: 'Admin Settings', href: '/settings', icon: Settings, badge: null },
+      { label: 'Absentees Report', href: '/absentees-report', icon: ClipboardList, badge: null },
+      { label: 'Career Survey Report', href: '/career-survey-report', icon: Briefcase, badge: null },
     ],
   },
 
@@ -87,6 +92,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
       '/dropouts',
       '/reports',
       '/portal',
+      '/survey',
+      '/graduate-survey',
       '/login',
     ],
     navItems: [
@@ -112,6 +119,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
       '/assessments',
       '/outcomes',
       '/students',
+      '/survey',
+      '/graduate-survey',
       '/login',
     ],
     navItems: [
@@ -136,6 +145,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
       '/students',
       '/attendance',
       '/dropouts',
+      '/survey',
+      '/graduate-survey',
       '/login',
     ],
     navItems: [

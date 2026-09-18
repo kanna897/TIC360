@@ -2,7 +2,7 @@ import { supabase } from './supabaseClient';
 import {
   Student, Course, Batch, MonthlyAttendance, BlossomMonthlyPayment, DropoutRecord,
   Assessment, AssessmentMark, CourseCompletion, StudentOutcome, AuditLog,
-  SystemSettings, AttendanceSession, AttendanceMark, AbsenceRequest
+  SystemSettings, AttendanceSession, AttendanceMark, AbsenceRequest, CareerSurveyResponse
 } from './types';
 import { resolveStudentGroup } from './utils';
 
@@ -15,7 +15,7 @@ const chunkArray = <T,>(arr: T[], size: number): T[][] => {
 };
 
 /** Fire-and-forget: logs errors but never throws. */
-const safeUpsert = async (table: string, rows: object[], options?: { onConflict?: string }) => {
+export const safeUpsert = async (table: string, rows: object[], options?: { onConflict?: string }) => {
   if (!rows.length) return;
   try {
     const chunks = chunkArray(rows, 500);
@@ -28,6 +28,36 @@ const safeUpsert = async (table: string, rows: object[], options?: { onConflict?
   } catch (e) {
     console.warn(`[supabaseSync] safeUpsert ${table}:`, e);
   }
+};
+
+/**
+ * Automatically paginates through PostgREST range queries in 1000-row chunks
+ * so queries never get truncated at Supabase's default 1000 row limit.
+ */
+export const fetchAllRowsFromTable = async (
+  table: string,
+  select = '*',
+  orderBy?: { column: string; ascending: boolean }
+): Promise<any[]> => {
+  const PAGE_SIZE = 1000;
+  let allRows: any[] = [];
+  let from = 0;
+  while (true) {
+    let query = supabase.from(table).select(select).range(from, from + PAGE_SIZE - 1);
+    if (orderBy) {
+      query = query.order(orderBy.column, { ascending: orderBy.ascending });
+    }
+    const { data, error } = await query;
+    if (error) {
+      console.warn(`[supabaseSync] fetchAllRowsFromTable ${table}:`, error.message);
+      break;
+    }
+    if (!data || data.length === 0) break;
+    allRows = allRows.concat(data);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return allRows;
 };
 
 const safeDelete = async (table: string, id: string) => {
@@ -187,6 +217,43 @@ const toDbAuditLog = (l: AuditLog) => ({
   record_id: l.recordId || null,
   details: l.details ? { text: l.details } : null,
   timestamp: l.timestamp,
+});
+
+const toDbAbsenceRequest = (a: AbsenceRequest) => ({
+  id: a.id,
+  student_id: a.studentId,
+  ut_number: a.utNumber,
+  full_name: a.fullName,
+  from_date: a.fromDate,
+  to_date: a.toDate,
+  reason: a.reason,
+  status: a.status,
+  created_at: a.createdAt,
+});
+
+const toDbCareerSurvey = (s: CareerSurveyResponse) => ({
+  id: s.id,
+  student_id: s.studentId,
+  ut_number: s.utNumber,
+  student_name: s.studentName,
+  is_blossom_trust: s.isBlossomTrust ?? false,
+  outcome_status: s.outcomeStatus,
+  outcome_date: s.outcomeDate,
+  company_or_institution: s.companyOrInstitution || null,
+  working_company_name: s.workingCompanyName || null,
+  job_title: s.jobTitle || null,
+  salary: s.salary ?? 0,
+  current_status: s.currentStatus || null,
+  course_completion_status: s.courseCompletionStatus || null,
+  course_specialization: s.courseSpecialization || null,
+  employment_status: s.employmentStatus || null,
+  other_status: s.otherStatus || null,
+  work_location: s.workLocation || null,
+  linkedin_url: s.linkedinUrl || null,
+  contact_phone: s.contactPhone || null,
+  contact_email: s.contactEmail || null,
+  remarks: s.remarks || null,
+  created_at: s.createdAt,
 });
 
 // ─── App-row mappers (snake_case → camelCase) ──────────────────────────────
@@ -355,6 +422,43 @@ const fromDbAuditLog = (l: any): AuditLog => ({
   details: l.details?.text || undefined,
   timestamp: l.timestamp,
 });
+
+const fromDbAbsenceRequest = (a: any): AbsenceRequest => ({
+  id: a.id,
+  studentId: a.student_id,
+  utNumber: a.ut_number,
+  fullName: a.full_name,
+  fromDate: a.from_date,
+  toDate: a.to_date,
+  reason: a.reason,
+  status: a.status,
+  createdAt: a.created_at,
+});
+
+const fromDbCareerSurvey = (s: any): CareerSurveyResponse => ({
+  id: s.id,
+  studentId: s.student_id,
+  utNumber: s.ut_number,
+  studentName: s.student_name,
+  isBlossomTrust: s.is_blossom_trust ?? false,
+  outcomeStatus: s.outcome_status,
+  outcomeDate: s.outcome_date,
+  companyOrInstitution: s.company_or_institution || undefined,
+  workingCompanyName: s.working_company_name || undefined,
+  jobTitle: s.job_title || undefined,
+  salary: s.salary ?? 0,
+  currentStatus: s.current_status || undefined,
+  courseCompletionStatus: s.course_completion_status || undefined,
+  courseSpecialization: s.course_specialization || undefined,
+  employmentStatus: s.employment_status || undefined,
+  otherStatus: s.other_status || undefined,
+  workLocation: s.work_location || undefined,
+  linkedinUrl: s.linkedin_url || undefined,
+  contactPhone: s.contact_phone || undefined,
+  contactEmail: s.contact_email || undefined,
+  remarks: s.remarks || undefined,
+  createdAt: s.created_at,
+});
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 // ─── Fetch All ──────────────────────────────────────────────────────────────
@@ -363,42 +467,42 @@ export const fetchAllFromSupabase = async () => {
   console.log('[supabaseSync] Fetching initial state from Supabase...');
 
   const [
-    { data: studentsRaw, error: eStudents },
-    { data: coursesRaw, error: eCourses },
-    { data: batchesRaw, error: eBatches },
-    { data: monthlyAttRaw },
-    { data: blossomPayRaw },
-    { data: dropoutsRaw },
-    { data: assessmentsRaw },
-    { data: assessmentMarksRaw },
-    { data: completionsRaw },
-    { data: outcomesRaw },
-    { data: auditLogsRaw },
-    { data: settingsData },
-    { data: attSessionsRaw },
-    { data: attMarksRaw },
-    { data: bankDetailsRaw },
+    studentsRaw,
+    coursesRaw,
+    batchesRaw,
+    monthlyAttRaw,
+    blossomPayRaw,
+    dropoutsRaw,
+    assessmentsRaw,
+    assessmentMarksRaw,
+    completionsRaw,
+    outcomesRaw,
+    auditLogsRaw,
+    settingsData,
+    attSessionsRaw,
+    attMarksRaw,
+    bankDetailsRaw,
+    absenceRequestsRaw,
+    careerSurveyResponsesRaw,
   ] = await Promise.all([
-    supabase.from('students').select('*').order('created_at', { ascending: false }),
-    supabase.from('courses').select('*'),
-    supabase.from('batches').select('*'),
-    supabase.from('attendance').select('*'),
-    supabase.from('blossom_payments').select('*'),
-    supabase.from('dropouts').select('*'),
-    supabase.from('assessments').select('*'),
-    supabase.from('assessment_marks').select('*'),
-    supabase.from('course_completions').select('*'),
-    supabase.from('student_outcomes').select('*'),
-    supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(200),
-    supabase.from('system_settings').select('*'),
-    supabase.from('attendance_sessions').select('*').order('date', { ascending: true }),
-    supabase.from('attendance_marks').select('*'),
-    supabase.from('student_bank_details').select('*'),
+    fetchAllRowsFromTable('students', '*', { column: 'created_at', ascending: false }),
+    fetchAllRowsFromTable('courses', '*'),
+    fetchAllRowsFromTable('batches', '*'),
+    fetchAllRowsFromTable('attendance', '*'),
+    fetchAllRowsFromTable('blossom_payments', '*'),
+    fetchAllRowsFromTable('dropouts', '*'),
+    fetchAllRowsFromTable('assessments', '*'),
+    fetchAllRowsFromTable('assessment_marks', '*'),
+    fetchAllRowsFromTable('course_completions', '*'),
+    fetchAllRowsFromTable('student_outcomes', '*'),
+    supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(200).then(r => r.data || []),
+    supabase.from('system_settings').select('*').then(r => r.data || []),
+    fetchAllRowsFromTable('attendance_sessions', '*', { column: 'date', ascending: true }),
+    fetchAllRowsFromTable('attendance_marks', '*'),
+    fetchAllRowsFromTable('student_bank_details', '*'),
+    fetchAllRowsFromTable('absence_requests', '*', { column: 'created_at', ascending: false }),
+    fetchAllRowsFromTable('career_survey_responses', '*', { column: 'created_at', ascending: false }),
   ]);
-
-  if (eStudents) console.warn('[supabaseSync] fetch students:', eStudents.message);
-  if (eCourses) console.warn('[supabaseSync] fetch courses:', eCourses.message);
-  if (eBatches) console.warn('[supabaseSync] fetch batches:', eBatches.message);
 
   const courses = (coursesRaw || []).map(fromDbCourse);
   const batches = (batchesRaw || []).map(b => {
@@ -518,7 +622,13 @@ export const fetchAllFromSupabase = async () => {
     outcomes,
     auditLogs: (auditLogsRaw || []).map(fromDbAuditLog),
     settings: (settingsData?.find((s: any) => s.key === 'default')?.value as SystemSettings) || null,
-    absenceRequests: (settingsData?.find((s: any) => s.key === 'absence_requests')?.value as AbsenceRequest[]) || [],
+    absenceRequests: (
+      (settingsData?.find((s: any) => s.key === 'absence_requests')?.value as AbsenceRequest[]) || []
+    ).concat((absenceRequestsRaw || []).map(fromDbAbsenceRequest)).reduce((acc: AbsenceRequest[], cur) => {
+      if (!acc.find(a => a.id === cur.id)) acc.push(cur);
+      return acc;
+    }, []),
+    careerSurveyResponses: (careerSurveyResponsesRaw || []).map(fromDbCareerSurvey),
   };
 };
 
@@ -566,13 +676,13 @@ export const syncAllToSupabase = async (state: {
   await safeUpsert('attendance_marks', marksArray, { onConflict: 'session_id,student_id' });
 
   await Promise.all([
-    safeUpsert('attendance', state.monthlyAttendance.map(toDbMonthlyAttendance)),
+    safeUpsert('attendance', state.monthlyAttendance.map(toDbMonthlyAttendance), { onConflict: 'student_id,month' }),
     safeUpsert('blossom_payments', state.blossomPayments.map(toDbPayment)),
-    safeUpsert('dropouts', state.dropouts.map(toDbDropout)),
+    safeUpsert('dropouts', state.dropouts.map(toDbDropout), { onConflict: 'student_id' }),
     safeUpsert('assessments', state.assessments.map(toDbAssessment)),
-    safeUpsert('assessment_marks', state.assessmentMarks.map(toDbAssessmentMark)),
-    safeUpsert('course_completions', state.completions.map(toDbCompletion)),
-    safeUpsert('student_outcomes', state.outcomes.map(toDbOutcome)),
+    safeUpsert('assessment_marks', state.assessmentMarks.map(toDbAssessmentMark), { onConflict: 'assessment_id,student_id' }),
+    safeUpsert('course_completions', state.completions.map(toDbCompletion), { onConflict: 'student_id' }),
+    safeUpsert('student_outcomes', state.outcomes.map(toDbOutcome), { onConflict: 'student_id' }),
     safeUpsert('audit_logs', state.auditLogs.slice(0, 100).map(toDbAuditLog)),
     state.settings
       ? supabase.from('system_settings').upsert({ key: 'default', value: state.settings }).then(() => {})
@@ -639,7 +749,7 @@ export const syncAttendanceMarksForSession = (sessionId: string, marks: Record<s
 };
 
 export const syncMonthlyAttendance = (records: MonthlyAttendance[]) =>
-  safeUpsert('attendance', records.map(toDbMonthlyAttendance));
+  safeUpsert('attendance', records.map(toDbMonthlyAttendance), { onConflict: 'student_id,month' });
 
 export const syncPayment = (payment: BlossomMonthlyPayment) =>
   safeUpsert('blossom_payments', [toDbPayment(payment)]);
@@ -648,7 +758,7 @@ export const syncPayments = (payments: BlossomMonthlyPayment[]) =>
   safeUpsert('blossom_payments', payments.map(toDbPayment));
 
 export const syncDropout = (dropout: DropoutRecord) =>
-  safeUpsert('dropouts', [toDbDropout(dropout)]);
+  safeUpsert('dropouts', [toDbDropout(dropout)], { onConflict: 'student_id' });
 
 export const syncAssessment = (assessment: Assessment) =>
   safeUpsert('assessments', [toDbAssessment(assessment)]);
@@ -656,13 +766,13 @@ export const syncAssessment = (assessment: Assessment) =>
 export const syncDeleteAssessment = (id: string) => safeDelete('assessments', id);
 
 export const syncAssessmentMarks = (marks: AssessmentMark[]) =>
-  safeUpsert('assessment_marks', marks.map(toDbAssessmentMark));
+  safeUpsert('assessment_marks', marks.map(toDbAssessmentMark), { onConflict: 'assessment_id,student_id' });
 
 export const syncCompletion = (completion: CourseCompletion) =>
-  safeUpsert('course_completions', [toDbCompletion(completion)]);
+  safeUpsert('course_completions', [toDbCompletion(completion)], { onConflict: 'student_id' });
 
 export const syncOutcome = (outcome: StudentOutcome) =>
-  safeUpsert('student_outcomes', [toDbOutcome(outcome)]);
+  safeUpsert('student_outcomes', [toDbOutcome(outcome)], { onConflict: 'student_id' });
 
 export const syncCourse = (course: Course) =>
   safeUpsert('courses', [toDbCourse(course)]);
@@ -674,7 +784,10 @@ export const syncSettings = (settings: SystemSettings) =>
   supabase.from('system_settings').upsert({ key: 'default', value: settings }).then(() => {});
 
 export const syncAbsenceRequests = (requests: AbsenceRequest[]) =>
-  supabase.from('system_settings').upsert({ key: 'absence_requests', value: requests }).then(() => {});
+  safeUpsert('absence_requests', requests.map(toDbAbsenceRequest));
+
+export const syncCareerSurveyResponses = (responses: CareerSurveyResponse[]) =>
+  safeUpsert('career_survey_responses', responses.map(toDbCareerSurvey));
 
 export const syncAuditLog = (log: AuditLog) =>
   safeUpsert('audit_logs', [toDbAuditLog(log)]);

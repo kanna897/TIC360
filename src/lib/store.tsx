@@ -24,6 +24,7 @@ import {
   AttendanceMark,
   DailyTimeLog,
   AbsenceRequest,
+  CareerSurveyResponse,
 } from './types';
 import {
   initialStudents,
@@ -45,6 +46,7 @@ import {
 import { checkIsSupabaseConfigured, supabase } from './supabaseClient';
 import {
   fetchAllFromSupabase,
+  safeUpsert,
   syncAllToSupabase,
   syncStudent,
   syncDeleteStudent,
@@ -67,6 +69,7 @@ import {
   syncAuditLog,
   resetSeedDataInSupabase,
   syncAbsenceRequests,
+  syncCareerSurveyResponses,
 } from './supabaseSync';
 import { resolveStudentGroup } from './utils';
 import {
@@ -93,6 +96,7 @@ interface StoreContextType {
   completions: CourseCompletion[];
   outcomes: StudentOutcome[];
   absenceRequests: AbsenceRequest[];
+  careerSurveyResponses: CareerSurveyResponse[];
   auditLogs: AuditLog[];
   orgProfile: OrgProfile;
   settings: SystemSettings;
@@ -226,6 +230,7 @@ const STORAGE_KEYS = {
   SETTINGS: 'tic360_v2_settings',
   ORG_PROFILE: 'tic360_v2_org_profile',
   ABSENCES: 'tic360_v2_absences',
+  CAREER_SURVEYS: 'tic360_v2_career_surveys',
   ROLE: 'tic360_v2_current_role',
   THEME: 'tic360_v2_theme',
   AUTH_USER: 'tic360_v2_auth_user',
@@ -257,6 +262,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [completions, setCompletions] = useState<CourseCompletion[]>(initialCompletions);
   const [outcomes, setOutcomes] = useState<StudentOutcome[]>(initialStudentOutcomes);
   const [absenceRequests, setAbsenceRequests] = useState<AbsenceRequest[]>([]);
+  const [careerSurveyResponses, setCareerSurveyResponses] = useState<CareerSurveyResponse[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(initialAuditLogs);
   const [orgProfile, setOrgProfile] = useState<OrgProfile>(initialOrgProfile);
   const [settings, setSettings] = useState<SystemSettings>(initialSystemSettings);
@@ -301,12 +307,12 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           if (sAssessments) setAssessments(JSON.parse(sAssessments));
           const sAssMarks = localStorage.getItem(STORAGE_KEYS.ASSESSMENT_MARKS);
           if (sAssMarks) setAssessmentMarks(JSON.parse(sAssMarks));
-          const sCompletions = localStorage.getItem(STORAGE_KEYS.COMPLETIONS);
-          if (sCompletions) setCompletions(JSON.parse(sCompletions));
           const sOutcomes = localStorage.getItem(STORAGE_KEYS.OUTCOMES);
           if (sOutcomes) setOutcomes(JSON.parse(sOutcomes));
           const sAbs = localStorage.getItem(STORAGE_KEYS.ABSENCES);
           if (sAbs) setAbsenceRequests(JSON.parse(sAbs));
+          const sSurveys = localStorage.getItem(STORAGE_KEYS.CAREER_SURVEYS);
+          if (sSurveys) setCareerSurveyResponses(JSON.parse(sSurveys));
           const sAudit = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
           if (sAudit) setAuditLogs(JSON.parse(sAudit));
           const sOrg = localStorage.getItem(STORAGE_KEYS.ORG_PROFILE);
@@ -348,9 +354,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         if (data.dropouts?.length) setDropouts(data.dropouts);
         if (data.assessments?.length) setAssessments(data.assessments);
         if (data.assessmentMarks?.length) setAssessmentMarks(data.assessmentMarks);
-        if (data.completions?.length) setCompletions(data.completions);
         if (data.outcomes?.length) setOutcomes(data.outcomes);
         if (data.absenceRequests?.length) setAbsenceRequests(data.absenceRequests);
+        if (data.careerSurveyResponses?.length) setCareerSurveyResponses(data.careerSurveyResponses);
         if (data.auditLogs?.length) setAuditLogs(data.auditLogs);
         if (data.settings) setSettings(data.settings);
       } catch (e) {
@@ -450,7 +456,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(monthlyAttendance));
       localStorage.setItem(STORAGE_KEYS.ATT_SESSIONS, JSON.stringify(attendanceSessions));
       localStorage.setItem(STORAGE_KEYS.ATT_MARKS, JSON.stringify(attendanceMarks));
-      localStorage.setItem(STORAGE_KEYS.DAILY_LOGS, JSON.stringify(dailyTimeLogs));
       localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(blossomPayments));
       localStorage.setItem(STORAGE_KEYS.DROPOUTS, JSON.stringify(dropouts));
       localStorage.setItem(STORAGE_KEYS.ASSESSMENTS, JSON.stringify(assessments));
@@ -458,6 +463,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem(STORAGE_KEYS.COMPLETIONS, JSON.stringify(completions));
       localStorage.setItem(STORAGE_KEYS.OUTCOMES, JSON.stringify(outcomes));
       localStorage.setItem(STORAGE_KEYS.ABSENCES, JSON.stringify(absenceRequests));
+      localStorage.setItem(STORAGE_KEYS.CAREER_SURVEYS, JSON.stringify(careerSurveyResponses));
       localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(auditLogs));
       localStorage.setItem(STORAGE_KEYS.ORG_PROFILE, JSON.stringify(orgProfile));
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
@@ -501,6 +507,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     completions,
     outcomes,
     absenceRequests,
+    careerSurveyResponses,
     auditLogs,
     orgProfile,
     settings,
@@ -1326,9 +1333,41 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       newOutcome,
       ...prev.filter((o) => o.studentId !== outcomeData.studentId),
     ]);
+    
+    // Also store it persistently in careerSurveyResponses (append-only history)
+    const newSurveyId = `CSR-${Date.now()}`;
+    const newSurvey: CareerSurveyResponse = {
+      id: newSurveyId,
+      studentId: outcomeData.studentId,
+      utNumber: outcomeData.utNumber,
+      studentName: outcomeData.studentName,
+      isBlossomTrust: outcomeData.isBlossomTrust ?? false,
+      outcomeStatus: outcomeData.outcomeStatus,
+      outcomeDate: outcomeData.outcomeDate,
+      companyOrInstitution: outcomeData.companyOrInstitution,
+      workingCompanyName: outcomeData.workingCompanyName,
+      jobTitle: outcomeData.jobTitle,
+      salary: outcomeData.salary,
+      currentStatus: outcomeData.currentStatus,
+      courseCompletionStatus: outcomeData.courseCompletionStatus,
+      courseSpecialization: outcomeData.courseSpecialization,
+      employmentStatus: outcomeData.employmentStatus,
+      otherStatus: outcomeData.otherStatus,
+      workLocation: outcomeData.workLocation,
+      linkedinUrl: outcomeData.linkedinUrl,
+      contactPhone: outcomeData.contactPhone,
+      contactEmail: outcomeData.contactEmail,
+      remarks: outcomeData.remarks,
+      createdAt: new Date().toISOString(),
+    };
+    
+    setCareerSurveyResponses((prev) => [newSurvey, ...prev]);
 
     addAuditLog('Student Outcome Recorded', 'Outcome', outcomeData.utNumber, `Current Status: ${outcomeData.outcomeStatus} (${outcomeData.companyOrInstitution || 'N/A'})`);
-    if (checkIsSupabaseConfigured()) syncOutcome(newOutcome);
+    if (checkIsSupabaseConfigured()) {
+      syncOutcome(newOutcome);
+      syncCareerSurveyResponses([newSurvey]);
+    }
   };
 
   const addCourse = (courseData: Omit<Course, 'id'>) => {
@@ -1383,9 +1422,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     setBlossomPayments(initialBlossomPayments);
     setDropouts(initialDropouts);
     setAssessments(initialAssessments);
-    setAssessmentMarks(initialAssessmentMarks);
     setCompletions(initialCompletions);
     setOutcomes(initialStudentOutcomes);
+    setCareerSurveyResponses([]);
     setAuditLogs(initialAuditLogs);
     setOrgProfile(initialOrgProfile);
     setSettings(initialSystemSettings);
@@ -1510,7 +1549,21 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     // Step 5: Sync to Supabase
     if (checkIsSupabaseConfigured()) {
       if (sessions.length > 0) syncAttendanceSessions(sessions);
-      Object.keys(remappedMarks).forEach((sId) => syncAttendanceMarksForSession(sId, remappedMarks[sId]));
+      
+      const bulkMarks: object[] = [];
+      Object.keys(remappedMarks).forEach((sId) => {
+        Object.keys(remappedMarks[sId]).forEach((stuId) => {
+          bulkMarks.push({
+            id: `MARK-${sId}-${stuId}`,
+            session_id: sId,
+            student_id: stuId,
+            mark: remappedMarks[sId][stuId],
+          });
+        });
+      });
+      if (bulkMarks.length > 0) {
+        safeUpsert('attendance_marks', bulkMarks, { onConflict: 'session_id,student_id' });
+      }
       if (remappedMonthly.length > 0) syncMonthlyAttendance(remappedMonthly);
     }
     addAuditLog('Bulk Attendance Import', 'Attendance', 'All', `Imported ${sessions.length} sessions, ${remappedMonthly.length} monthly records, and ${newStudents?.length || 0} students`);
@@ -1641,6 +1694,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         attendanceSessions,
         attendanceMarks,
         absenceRequests,
+        careerSurveyResponses,
         dailyTimeLogs,
         blossomPayments,
         dropouts,
