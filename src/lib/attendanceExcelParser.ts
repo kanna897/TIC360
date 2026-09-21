@@ -103,7 +103,13 @@ export const parseAttendanceExcel = async (
     if (!rows || rows.length < 4) continue;
 
     const monthKey = sheetName.toLowerCase().trim();
-    const ym = MONTH_MAP[monthKey] || `2026-05`;
+    let ym = '2026-05'; // default fallback
+    for (const [key, val] of Object.entries(MONTH_MAP)) {
+      if (monthKey.includes(key)) {
+        ym = val;
+        break;
+      }
+    }
     const year = parseInt(ym.split('-')[0], 10) || 2026;
 
     let gAHeader = -1;

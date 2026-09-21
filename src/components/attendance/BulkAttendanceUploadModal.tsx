@@ -244,8 +244,10 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                     <h4 className="text-xs font-bold text-emerald-200">
                       Workbook Verified: {selectedFileName || 'Attendance Record.xlsx'}
                     </h4>
-                    <Badge variant={isFrontend ? 'emerald' : 'blue'}>
-                      {isFrontend ? '⚛️ Frontend Developer (React)' : '👨‍💻 Full Stack Developer'}
+                    <Badge variant={parsedData.summary.detectedFormat === 'Mixed / Custom' ? 'purple' : isFrontend ? 'emerald' : 'blue'}>
+                      {parsedData.summary.detectedFormat === 'Mixed / Custom' 
+                        ? '🔄 Full Stack & Frontend' 
+                        : isFrontend ? '⚛️ Frontend Developer (React)' : '👨‍💻 Full Stack Developer'}
                     </Badge>
                   </div>
                   <p className="text-[11px] text-emerald-400/80 mt-0.5">
@@ -304,7 +306,11 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                   {parsedData.summary.totalStudents} <span className="text-xs font-normal text-slate-400">trainees</span>
                 </div>
                 <div className="text-[10px] text-emerald-400 mt-1">
-                  {isFrontend ? '12 Trainees Enrolled' : `GA: ${parsedData.summary.groupACount} | GB: ${parsedData.summary.groupBCount}`}
+                  {parsedData.summary.detectedFormat === 'Mixed / Custom'
+                    ? `GA: ${parsedData.summary.groupACount} | GB: ${parsedData.summary.groupBCount} | FE: ${parsedData.summary.frontendCount}`
+                    : isFrontend 
+                      ? `${parsedData.summary.frontendCount} Trainees Enrolled` 
+                      : `GA: ${parsedData.summary.groupACount} | GB: ${parsedData.summary.groupBCount}`}
                 </div>
               </div>
 
