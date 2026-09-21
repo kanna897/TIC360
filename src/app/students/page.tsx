@@ -93,6 +93,7 @@ export default function StudentsPage() {
     emergencyContactRelationship: 'Parent',
     batchId: batches[0]?.id || 'BAT-02',
     courseId: courses[0]?.id || 'CRS-02',
+    group: '',
     photoUrl: '',
     isBlossomTrust: true, // Default prompt asks: Blossom Trust Student?
     currentStatus: 'Active' as StudentStatus,
@@ -207,6 +208,7 @@ export default function StudentsPage() {
       batchName: selectedBatch.name,
       courseId: selectedCourse.id,
       courseName: selectedCourse.name,
+      group: formData.group,
       photoUrl: formData.photoUrl,
       isBlossomTrust: formData.isBlossomTrust,
       currentStatus: formData.currentStatus,
@@ -253,6 +255,7 @@ export default function StudentsPage() {
       emergencyContactRelationship: 'Parent',
       batchId: batches[0]?.id || 'BAT-02',
       courseId: courses[0]?.id || 'CRS-02',
+      group: '',
       photoUrl: '',
       isBlossomTrust: true,
       currentStatus: 'Active',
@@ -1154,16 +1157,16 @@ export default function StudentsPage() {
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           />
 
-          {/* Course & Batch Selection (ONE course per student) */}
+          {/* Programme & Batch Selection */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
             <Select
-              label="Course Allocation (1 Course Per Student) *"
+              label="Main Programme *"
               value={formData.courseId}
               onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
               options={[
-                { value: '', label: 'Select a Course' },
-                { value: 'Full Stack Developer', label: 'Full Stack Developer' },
-                { value: 'Frontend Developer', label: 'Frontend Developer' }
+                { value: '', label: 'Select a Programme' },
+                { value: 'Full Stack Developer', label: 'Full Stack Development' },
+                { value: 'Frontend Developer', label: 'Frontend Development (Legacy)' }
               ]}
             />
             <Select
@@ -1171,6 +1174,16 @@ export default function StudentsPage() {
               value={formData.batchId}
               onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
               options={batches.map((b) => ({ value: b.id, label: b.name }))}
+            />
+            <Select
+              label="Group (Pre-Split)"
+              value={formData.group || ''}
+              onChange={(e) => setFormData({ ...formData, group: e.target.value })}
+              options={[
+                { value: '', label: 'Unassigned' },
+                { value: 'Group A', label: 'Group A' },
+                { value: 'Group B', label: 'Group B' }
+              ]}
             />
           </div>
 
@@ -1419,7 +1432,7 @@ export default function StudentsPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Select
-                label="Course Allocation"
+                label="Main Programme"
                 value={editingStudent.courseId}
                 onChange={(e) => {
                   setEditingStudent({
@@ -1429,11 +1442,24 @@ export default function StudentsPage() {
                   });
                 }}
                 options={[
-                  { value: '', label: 'Select a Course' },
-                  { value: 'Full Stack Developer', label: 'Full Stack Developer' },
-                  { value: 'Frontend Developer', label: 'Frontend Developer' }
+                  { value: '', label: 'Select a Programme' },
+                  { value: 'Full Stack Developer', label: 'Full Stack Development' },
+                  { value: 'Frontend Developer', label: 'Frontend Development (Legacy)' }
                 ]}
               />
+              <Select
+                label="Group (Pre-Split)"
+                value={editingStudent.group || ''}
+                onChange={(e) => setEditingStudent({ ...editingStudent, group: e.target.value })}
+                options={[
+                  { value: '', label: 'Unassigned' },
+                  { value: 'Group A', label: 'Group A' },
+                  { value: 'Group B', label: 'Group B' }
+                ]}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Select
                 label="Status"
                 value={editingStudent.currentStatus}
@@ -1454,7 +1480,7 @@ export default function StudentsPage() {
 
               {/* SECTION ALLOCATION (POST-SPLIT) */}
               <div className="col-span-full pt-4 border-t border-slate-800">
-                <h4 className="text-sm font-bold text-white mb-2">Section Allocation (Post-Split)</h4>
+                <h4 className="text-sm font-bold text-white mb-2">Section / Track Allocation (Post-Split)</h4>
                 <div className="space-y-3">
                   {(editingStudent.sectionAllocations || []).map((alloc, idx) => (
                     <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-800">
@@ -1479,7 +1505,7 @@ export default function StudentsPage() {
                   <div className="flex flex-col sm:flex-row gap-2 sm:items-end p-3 rounded-lg bg-slate-950 border border-slate-800">
                     <div className="flex-1">
                       <Select
-                        label="Assign to Section"
+                        label="Section / Track"
                         value={newSectionAllocation.section}
                         onChange={(e) => setNewSectionAllocation({ ...newSectionAllocation, section: e.target.value })}
                         options={[
@@ -1490,7 +1516,7 @@ export default function StudentsPage() {
                     </div>
                     <div className="flex-1">
                       <Input
-                        label="Effective Date"
+                        label="Effective From"
                         type="date"
                         value={newSectionAllocation.effectiveFrom}
                         onChange={(e) => setNewSectionAllocation({ ...newSectionAllocation, effectiveFrom: e.target.value })}

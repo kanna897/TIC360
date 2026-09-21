@@ -7,6 +7,7 @@ import { UploadCloud, CheckCircle2, AlertTriangle, Play } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { parseFingerprintCSV } from '@/lib/csvParser';
 import { DailyTimeLog } from '@/lib/types';
+import { getStudentSectionAtDate } from '@/lib/utils';
 
 interface FingerprintUploadModalProps {
   isOpen: boolean;
@@ -17,7 +18,7 @@ export const FingerprintUploadModal: React.FC<FingerprintUploadModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { students, processFingerprintCSV } = useStore();
+  const { students, batches, processFingerprintCSV } = useStore();
 
   const [sessionDate, setSessionDate] = useState(
     new Date().toISOString().slice(0, 10)
@@ -133,19 +134,36 @@ export const FingerprintUploadModal: React.FC<FingerprintUploadModalProps> = ({
             </div>
 
             <div className="space-y-6">
-              {['Full Stack - Group A', 'Full Stack - Group B', 'Frontend Developer', 'Unassigned'].map((groupName) => {
+              {(() => {
+                const dynamicGroups = ['Full Stack - Group A', 'Full Stack - Group B', 'Frontend Developer'];
+                batches.forEach(b => {
+                  if (b.isSplitEnabled && b.availableSections) {
+                    b.availableSections.forEach(s => {
+                      if (!dynamicGroups.includes(s) && s !== 'Frontend Developer') {
+                        dynamicGroups.push(s);
+                      }
+                    });
+                  }
+                });
+                dynamicGroups.push('Unassigned');
+                return dynamicGroups;
+              })().map((groupName) => {
                 const groupLogs = parsedLogs.filter((log) => {
-                  const g = log.group?.toLowerCase() || '';
-                  const c = log.courseName?.toLowerCase() || '';
-                  const isFrontend = c === 'frontend developer';
-                  const isFullStack = !isFrontend;
+                  const student = students.find(s => s.utNumber === log.utNumber);
+                  if (!student) return groupName === 'Unassigned';
 
-                  if (groupName === 'Full Stack - Group A') return isFullStack && (g === 'group a' || g === 'a');
-                  if (groupName === 'Full Stack - Group B') return isFullStack && (g === 'group b' || g === 'b');
-                  if (groupName === 'Frontend Developer') return isFrontend;
-                  
-                  // Unassigned fallback
-                  return !(isFullStack && (g === 'group a' || g === 'a' || g === 'group b' || g === 'b')) && !isFrontend;
+                  const batch = batches.find(b => b.id === student.batchId);
+                  const assignedGroup = getStudentSectionAtDate(student, sessionDate, batch);
+
+                  let label = assignedGroup;
+                  if (assignedGroup === 'Group A') label = 'Full Stack - Group A';
+                  if (assignedGroup === 'Group B') label = 'Full Stack - Group B';
+
+                  if (groupName === 'Unassigned') {
+                    return !label;
+                  }
+
+                  return label === groupName;
                 });
 
                 if (groupLogs.length === 0) return null;
