@@ -7,7 +7,7 @@ import { UploadCloud, CheckCircle2, AlertTriangle, Play } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { parseFingerprintCSV } from '@/lib/csvParser';
 import { DailyTimeLog } from '@/lib/types';
-import { getStudentSectionAtDate } from '@/lib/utils';
+import { resolveStudentGroup } from '@/lib/utils';
 
 interface FingerprintUploadModalProps {
   isOpen: boolean;
@@ -134,28 +134,14 @@ export const FingerprintUploadModal: React.FC<FingerprintUploadModalProps> = ({
             </div>
 
             <div className="space-y-6">
-              {(() => {
-                const dynamicGroups = ['Full Stack - Group A', 'Full Stack - Group B', 'Frontend Developer'];
-                batches.forEach(b => {
-                  if (b.isSplitEnabled && b.availableSections) {
-                    b.availableSections.forEach(s => {
-                      if (!dynamicGroups.includes(s) && s !== 'Frontend Developer') {
-                        dynamicGroups.push(s);
-                      }
-                    });
-                  }
-                });
-                dynamicGroups.push('Unassigned');
-                return dynamicGroups;
-              })().map((groupName) => {
+              {['Full Stack - Group A', 'Full Stack - Group B', 'Frontend Developer', 'Unassigned'].map((groupName) => {
                 const groupLogs = parsedLogs.filter((log) => {
                   const student = students.find(s => s.utNumber === log.utNumber);
                   if (!student) return groupName === 'Unassigned';
 
-                  const batch = batches.find(b => b.id === student.batchId);
-                  const assignedGroup = getStudentSectionAtDate(student, sessionDate, batch);
+                  const assignedGroup = resolveStudentGroup(student);
 
-                  let label = assignedGroup;
+                  let label: string = assignedGroup;
                   if (assignedGroup === 'Group A') label = 'Full Stack - Group A';
                   if (assignedGroup === 'Group B') label = 'Full Stack - Group B';
 

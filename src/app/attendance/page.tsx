@@ -36,7 +36,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { exportToCSV, exportToExcel, formatMonthName, getStudentDropoutStatusInMonth, resolveStudentGroup, getStudentSectionAtDate } from '@/lib/utils';
+import { exportToCSV, exportToExcel, formatMonthName, getStudentDropoutStatusInMonth, resolveStudentGroup } from '@/lib/utils';
 import { FingerprintUploadModal } from '@/components/attendance/FingerprintUploadModal';
 import { BulkAttendanceUploadModal } from '@/components/attendance/BulkAttendanceUploadModal';
 
@@ -88,14 +88,8 @@ export default function AttendancePage() {
 
   // Available groups/sections based on batch
   const availableGroups = useMemo(() => {
-    const baseGroups = ['Full Stack - Group A', 'Full Stack - Group B', 'Frontend Developer'];
-    if (activeBatchObj?.isSplitEnabled && activeBatchObj.availableSections) {
-      activeBatchObj.availableSections.forEach(sec => {
-        if (!baseGroups.includes(sec)) baseGroups.push(sec);
-      });
-    }
-    return baseGroups;
-  }, [activeBatchObj]);
+    return ['Full Stack - Group A', 'Full Stack - Group B', 'Frontend Developer'];
+  }, []);
 
   // Filter students by selected Group and Batch
   // Dropout-month awareness: a dropout student is only shown in the month they dropped out
@@ -117,24 +111,17 @@ export default function AttendancePage() {
       const { isAfterDropoutMonth } = getStudentDropoutStatusInMonth(s, dropouts, selectedMonthString);
       if (isAfterDropoutMonth) return false;
 
-      // Course Split logic: determine section on the 1st and 28th of the month
-      const sectionStart = getStudentSectionAtDate(s, `${selectedMonthString}-01`, activeBatchObj);
-      const sectionEnd = getStudentSectionAtDate(s, `${selectedMonthString}-28`, activeBatchObj);
-      
+      const studentGroup = resolveStudentGroup(s);
       let matchesGroup = false;
       if (selectedGroup === 'all') {
         matchesGroup = true;
       } else if (selectedGroup === 'Full Stack - Group A') {
-        matchesGroup = sectionStart === 'Group A' || sectionEnd === 'Group A';
+        matchesGroup = studentGroup === 'Group A';
       } else if (selectedGroup === 'Full Stack - Group B') {
-        matchesGroup = sectionStart === 'Group B' || sectionEnd === 'Group B';
+        matchesGroup = studentGroup === 'Group B';
       } else if (selectedGroup === 'Frontend Developer') {
-        matchesGroup = sectionStart === 'Frontend Developer' || sectionEnd === 'Frontend Developer';
-      } else {
-        // Any custom section configured in batch
-        matchesGroup = sectionStart === selectedGroup || sectionEnd === selectedGroup;
+        matchesGroup = studentGroup === 'Frontend Developer';
       }
-
       const matchesBatch = selectedBatch === 'all' || s.batchId === selectedBatch;
       const matchesSearch =
         s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -454,9 +441,7 @@ export default function AttendancePage() {
             if (group === 'Full Stack - Group A') label = 'FULL STACK - GROUP "A"';
             if (group === 'Full Stack - Group B') label = 'FULL STACK - GROUP "B"';
             if (group === 'Frontend Developer') { label = 'FRONTEND DEVELOPER'; icon = '⚛️'; }
-            if (group === 'AI Agents') { label = 'AI AGENTS'; icon = '🤖'; }
-            if (group === 'Flutter Development') { label = 'FLUTTER DEVELOPMENT'; icon = '📱'; }
-            if (group === 'Embedded Systems & Robotics') { label = 'EMBEDDED SYSTEMS & ROBOTICS'; icon = '⚙️'; }
+
 
             return (
               <button

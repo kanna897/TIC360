@@ -35,7 +35,6 @@ import { formatCurrency, formatDate, exportToCSV, exportToExcel } from '@/lib/ut
 import { uploadToCloudinary } from '@/lib/cloudinary';
 import { SRI_LANKA_BANKS } from '@/lib/sriLankaBanks';
 import * as XLSX from 'xlsx';
-import { BulkSectionUploadModal } from '@/components/students/BulkSectionUploadModal';
 
 export default function StudentsPage() {
   const {
@@ -76,7 +75,6 @@ export default function StudentsPage() {
 
   // Add Student Modal & Form State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isBulkSectionModalOpen, setIsBulkSectionModalOpen] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -549,14 +547,6 @@ export default function StudentsPage() {
                 leftIcon={<Upload className="w-4 h-4 text-blue-400" />}
               >
                 Bulk Upload (Excel)
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsBulkSectionModalOpen(true)}
-                leftIcon={<Upload className="w-4 h-4 text-emerald-400" />}
-              >
-                Bulk Section Assign
               </Button>
             </>
           )}
@@ -1488,69 +1478,7 @@ export default function StudentsPage() {
                 ]}
               />
 
-              {/* SECTION ALLOCATION (POST-SPLIT) */}
-              <div className="col-span-full pt-4 border-t border-slate-800">
-                <h4 className="text-sm font-bold text-white mb-2">Section / Track Allocation (Post-Split)</h4>
-                <div className="space-y-3">
-                  {(editingStudent.sectionAllocations || []).map((alloc, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-800">
-                      <div>
-                        <span className="text-xs font-bold text-emerald-400">{alloc.section}</span>
-                        <span className="text-[10px] text-slate-400 block">Effective: {alloc.effectiveFrom}</span>
-                      </div>
-                      <button 
-                        type="button" 
-                        onClick={() => {
-                          const newAllocs = [...(editingStudent.sectionAllocations || [])];
-                          newAllocs.splice(idx, 1);
-                          setEditingStudent({ ...editingStudent, sectionAllocations: newAllocs });
-                        }}
-                        className="text-rose-400 hover:text-rose-300"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                  
-                  <div className="flex flex-col sm:flex-row gap-2 sm:items-end p-3 rounded-lg bg-slate-950 border border-slate-800">
-                    <div className="flex-1">
-                      <Select
-                        label="Section / Track"
-                        value={newSectionAllocation.section}
-                        onChange={(e) => setNewSectionAllocation({ ...newSectionAllocation, section: e.target.value })}
-                        options={[
-                          { value: '', label: 'Select Section' },
-                          ...(batches.find(b => b.id === editingStudent.batchId)?.availableSections || []).map(s => ({ value: s, label: s }))
-                        ]}
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <Input
-                        label="Effective From"
-                        type="date"
-                        value={newSectionAllocation.effectiveFrom}
-                        onChange={(e) => setNewSectionAllocation({ ...newSectionAllocation, effectiveFrom: e.target.value })}
-                      />
-                    </div>
-                    <Button 
-                      type="button"
-                      variant="primary"
-                      onClick={() => {
-                        if (newSectionAllocation.section && newSectionAllocation.effectiveFrom) {
-                          setEditingStudent({
-                            ...editingStudent,
-                            sectionAllocations: [...(editingStudent.sectionAllocations || []), newSectionAllocation]
-                          });
-                          setNewSectionAllocation({ section: '', effectiveFrom: '' });
-                        }
-                      }}
-                      className="mt-2 sm:mt-0"
-                    >
-                      Add
-                    </Button>
-                  </div>
-                </div>
-              </div>              {/* Dropout Month dropdown — only shown when Dropout is selected */}
+              {/* Dropout Month dropdown — only shown when Dropout is selected */}
               {editingStudent.currentStatus === 'Dropout' && !dropouts.some((d) => d.studentId === editingStudent.id) && (
                 <div className="col-span-full">
                   <Select
@@ -1756,11 +1684,6 @@ export default function StudentsPage() {
           </form>
         </Modal>
       )}
-
-      <BulkSectionUploadModal
-        isOpen={isBulkSectionModalOpen}
-        onClose={() => setIsBulkSectionModalOpen(false)}
-      />
     </div>
   );
 }

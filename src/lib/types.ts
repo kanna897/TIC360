@@ -49,11 +49,6 @@ export interface AbsenceRequest {
   createdAt: string;
 }
 
-export interface StudentSectionAllocation {
-  section: string;
-  effectiveFrom: string; // YYYY-MM-DD
-}
-
 export interface Student {
   id: string;
   utNumber: string;
@@ -72,7 +67,6 @@ export interface Student {
   courseId: string;
   courseName: string;
   group?: 'Group A' | 'Group B' | 'A' | 'B' | 'Frontend Developer' | string;
-  sectionAllocations?: StudentSectionAllocation[];
   photoUrl?: string;
   isBlossomTrust: boolean;
   blossomAmount?: number;
@@ -101,9 +95,6 @@ export interface Batch {
   startDate: string;
   endDate?: string;
   status: 'Active' | 'Completed' | 'Upcoming';
-  isSplitEnabled?: boolean;
-  splitDate?: string;
-  availableSections?: string[];
 }
 
 export type AttendanceStatus = 'Good Attendance' | 'Low Attendance' | 'Critical Attendance';

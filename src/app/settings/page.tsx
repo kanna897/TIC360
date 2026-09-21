@@ -1016,10 +1016,6 @@ export default function SettingsPage() {
       {/* TAB: BATCHES */}
       {activeTab === 'batches' && (
         <div className="space-y-4">
-          <p className="text-xs text-slate-400">
-            Manage batches and configure course splits/sections (e.g. splitting Full Stack into Frontend, AI, etc.)
-          </p>
-          
           <div className="grid grid-cols-1 gap-4">
             {batches.map((batch) => (
               <Card key={batch.id} className="p-5 space-y-4">
@@ -1033,54 +1029,7 @@ export default function SettingsPage() {
                   </Badge>
                 </div>
                 
-                <div className="pt-4 border-t border-slate-800">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h4 className="text-sm font-bold text-white">Course Split Configuration</h4>
-                      <p className="text-xs text-slate-400">Enable advanced sections for this batch</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={!!batch.isSplitEnabled}
-                        onChange={(e) => updateBatch(batch.id, { isSplitEnabled: e.target.checked })}
-                      />
-                      <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-                    </label>
-                  </div>
-                  
-                  {batch.isSplitEnabled && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-900/50 border border-slate-800">
-                      <div>
-                        <Input
-                          label="Split Date"
-                          type="date"
-                          value={batch.splitDate || ''}
-                          onChange={(e) => updateBatch(batch.id, { splitDate: e.target.value })}
-                        />
-                        <p className="text-[10px] text-slate-400 mt-1">
-                          Attendance on or after this date will use post-split sections.
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                          Available Sections (comma separated)
-                        </label>
-                        <Input
-                          value={(batch.availableSections || []).join(', ')}
-                          placeholder="Frontend Development, AI Agents..."
-                          onChange={(e) => updateBatch(batch.id, { 
-                            availableSections: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-                          })}
-                        />
-                        <p className="text-[10px] text-slate-400 mt-1">
-                          These will be available for student assignment.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+
               </Card>
             ))}
           </div>

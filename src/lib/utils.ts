@@ -301,35 +301,3 @@ export function resolveStudentGroup(stu: {
 
   return 'Group A';
 }
-
-export function getStudentSectionAtDate(student: Student, date: string, batch?: Batch): string {
-  // If batch has no split date configured, use pre-split logic
-  if (!batch || !batch.isSplitEnabled || !batch.splitDate) {
-    return resolveStudentGroup(student);
-  }
-
-  // If attendance date is before the split date, use pre-split logic
-  if (date < batch.splitDate) {
-    return resolveStudentGroup(student);
-  }
-
-  // Post-split logic: Find active section allocation
-  if (!student.sectionAllocations || student.sectionAllocations.length === 0) {
-    // Fallback if split but student has no allocation yet
-    return resolveStudentGroup(student);
-  }
-
-  // Sort descending by effectiveFrom
-  const sortedAllocations = [...student.sectionAllocations].sort((a, b) => 
-    b.effectiveFrom.localeCompare(a.effectiveFrom)
-  );
-
-  const activeAllocation = sortedAllocations.find(a => a.effectiveFrom <= date);
-
-  if (activeAllocation) {
-    return activeAllocation.section;
-  }
-
-  // Fallback if all allocations are in the future
-  return resolveStudentGroup(student);
-}
