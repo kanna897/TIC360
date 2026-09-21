@@ -35,6 +35,7 @@ import { formatCurrency, formatDate, exportToCSV, exportToExcel } from '@/lib/ut
 import { uploadToCloudinary } from '@/lib/cloudinary';
 import { SRI_LANKA_BANKS } from '@/lib/sriLankaBanks';
 import * as XLSX from 'xlsx';
+import { BulkSectionUploadModal } from '@/components/students/BulkSectionUploadModal';
 
 export default function StudentsPage() {
   const {
@@ -75,6 +76,7 @@ export default function StudentsPage() {
 
   // Add Student Modal & Form State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isBulkSectionModalOpen, setIsBulkSectionModalOpen] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -547,6 +549,14 @@ export default function StudentsPage() {
                 leftIcon={<Upload className="w-4 h-4 text-blue-400" />}
               >
                 Bulk Upload (Excel)
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsBulkSectionModalOpen(true)}
+                leftIcon={<Upload className="w-4 h-4 text-emerald-400" />}
+              >
+                Bulk Section Assign
               </Button>
             </>
           )}
@@ -1746,6 +1756,11 @@ export default function StudentsPage() {
           </form>
         </Modal>
       )}
+
+      <BulkSectionUploadModal
+        isOpen={isBulkSectionModalOpen}
+        onClose={() => setIsBulkSectionModalOpen(false)}
+      />
     </div>
   );
 }
