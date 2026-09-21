@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import * as XLSX from 'xlsx';
-import { Student, StudentOutcome, DropoutRecord, Batch } from './types';
+import { Student, StudentOutcome, DropoutRecord, Batch, ProgrammeHistory } from './types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -300,4 +300,44 @@ export function resolveStudentGroup(stu: {
   }
 
   return 'Group A';
+}
+
+/**
+ * Determines the student's programme and group at a given date using programmeHistory.
+ * Finds the latest assignment where effectiveFrom <= date.
+ * If no such record exists, falls back to the student's current profile values (which was their initial state).
+ */
+export function getStudentProgrammeAtDate(
+  student: { id: string; courseId?: string; group?: string; utNumber?: string; courseName?: string; },
+  history: ProgrammeHistory[],
+  date: string
+): { programme: string; group: string | null } {
+  // Filter history for this student and sort ascending by effectiveFrom date
+  const studentHistory = history
+    .filter(h => h.studentId === student.id)
+    .sort((a, b) => new Date(a.effectiveFrom).getTime() - new Date(b.effectiveFrom).getTime());
+
+  let applicableRecord = null;
+  for (const record of studentHistory) {
+    if (new Date(record.effectiveFrom) <= new Date(date)) {
+      applicableRecord = record;
+    } else {
+      break;
+    }
+  }
+
+  if (applicableRecord) {
+    return {
+      programme: applicableRecord.programme,
+      group: applicableRecord.groupName,
+    };
+  }
+
+  // Fallback to their current profile. In a true event-sourced system, we'd have their 
+  // initial state in history. Since we don't, we assume their current state is their 
+  // initial state if no history exists for this date.
+  return {
+    programme: student.courseId || '',
+    group: resolveStudentGroup(student)
+  };
 }

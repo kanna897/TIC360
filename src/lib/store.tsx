@@ -25,6 +25,7 @@ import {
   DailyTimeLog,
   AbsenceRequest,
   CareerSurveyResponse,
+  ProgrammeHistory,
 } from './types';
 import {
   initialStudents,
@@ -97,6 +98,7 @@ interface StoreContextType {
   outcomes: StudentOutcome[];
   absenceRequests: AbsenceRequest[];
   careerSurveyResponses: CareerSurveyResponse[];
+  programmeHistory: ProgrammeHistory[];
   auditLogs: AuditLog[];
   orgProfile: OrgProfile;
   settings: SystemSettings;
@@ -116,6 +118,7 @@ interface StoreContextType {
     password: string
   ) => { student: Student; account: UserAccount };
   updateStudent: (id: string, student: Partial<Student>) => void;
+  transferProgramme: (studentId: string, newProgramme: string, newGroup: string, effectiveFrom: string) => void;
   deleteStudent: (id: string) => void;
   bulkImportBlossomStudents: (
     rows: Array<{
@@ -264,6 +267,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [outcomes, setOutcomes] = useState<StudentOutcome[]>(initialStudentOutcomes);
   const [absenceRequests, setAbsenceRequests] = useState<AbsenceRequest[]>([]);
   const [careerSurveyResponses, setCareerSurveyResponses] = useState<CareerSurveyResponse[]>([]);
+  const [programmeHistory, setProgrammeHistory] = useState<ProgrammeHistory[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(initialAuditLogs);
   const [orgProfile, setOrgProfile] = useState<OrgProfile>(initialOrgProfile);
   const [settings, setSettings] = useState<SystemSettings>(initialSystemSettings);
@@ -358,6 +362,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         if (data.outcomes?.length) setOutcomes(data.outcomes);
         if (data.absenceRequests?.length) setAbsenceRequests(data.absenceRequests);
         if (data.careerSurveyResponses?.length) setCareerSurveyResponses(data.careerSurveyResponses);
+        if (data.programmeHistory?.length) setProgrammeHistory(data.programmeHistory);
         if (data.auditLogs?.length) setAuditLogs(data.auditLogs);
         if (data.settings) setSettings(data.settings);
       } catch (e) {
@@ -689,6 +694,38 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     if (checkIsSupabaseConfigured()) {
       const updatedStu = students.find((s) => s.id === id);
       if (updatedStu) syncStudent({ ...updatedStu, ...updated, updatedAt: new Date().toISOString().slice(0, 10) });
+    }
+  };
+
+  const transferProgramme = (studentId: string, newProgramme: string, newGroup: string, effectiveFrom: string) => {
+    // 1. Update the student in local state with the new programme/group so the UI reflects it
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.id === studentId
+          ? {
+              ...s,
+              courseId: newProgramme,
+              courseName: newProgramme,
+              group: newGroup,
+              updatedAt: new Date().toISOString().slice(0, 10),
+            }
+          : s
+      )
+    );
+
+    addAuditLog('Programme Transferred', 'Student', studentId, `Transferred to ${newProgramme} effective ${effectiveFrom}`);
+    
+    // 2. Sync the updated student to the students table
+    if (checkIsSupabaseConfigured()) {
+      const updatedStu = students.find((s) => s.id === studentId);
+      if (updatedStu) {
+         syncStudent({ ...updatedStu, courseId: newProgramme, courseName: newProgramme, group: newGroup, updatedAt: new Date().toISOString().slice(0, 10) });
+      }
+      
+      // 3. Sync the programme_history entry
+      import('./supabaseSync').then(({ syncProgrammeHistory }) => {
+         syncProgrammeHistory(studentId, newProgramme, newGroup, effectiveFrom);
+      });
     }
   };
 
@@ -1705,6 +1742,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         attendanceMarks,
         absenceRequests,
         careerSurveyResponses,
+        programmeHistory,
         dailyTimeLogs,
         blossomPayments,
         dropouts,
@@ -1726,6 +1764,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         addStudent,
         registerNewStudent,
         updateStudent,
+        transferProgramme,
         deleteStudent,
         bulkImportBlossomStudents,
         recordAttendance,

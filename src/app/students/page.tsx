@@ -45,6 +45,7 @@ export default function StudentsPage() {
     dropouts,
     addStudent,
     updateStudent,
+    transferProgramme,
     deleteStudent,
     recordDropout,
     currentRole,
@@ -71,7 +72,8 @@ export default function StudentsPage() {
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   // Dropout month selected in edit modal when status = Dropout
   const [editDropoutMonth, setEditDropoutMonth] = useState<string>(new Date().toISOString().slice(0, 7));
-  const [newSectionAllocation, setNewSectionAllocation] = useState({ section: '', effectiveFrom: '' });
+  const [editProgrammeEffectiveFrom, setEditProgrammeEffectiveFrom] = useState<string>(new Date().toISOString().slice(0, 10));
+
 
   // Add Student Modal & Form State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -279,6 +281,12 @@ export default function StudentsPage() {
     e.preventDefault();
     if (!editingStudent) return;
 
+    const originalStudent = students.find((s) => s.id === editingStudent.id);
+    const hasProgrammeChanged = originalStudent && (
+      originalStudent.courseId !== editingStudent.courseId || 
+      originalStudent.group !== editingStudent.group
+    );
+
     // If status changed TO Dropout and no existing dropout record → create one
     const alreadyHasDropoutRecord = dropouts.some((d) => d.studentId === editingStudent.id);
     if (editingStudent.currentStatus === 'Dropout' && !alreadyHasDropoutRecord) {
@@ -289,6 +297,14 @@ export default function StudentsPage() {
         rejoinPossibility: 'Unknown',
         remarks: 'Marked as Dropout via Student Directory edit',
       });
+    }
+
+    if (hasProgrammeChanged) {
+      // First update the non-programme fields normally
+      const { courseId, courseName, group, ...restUpdated } = editingStudent;
+      updateStudent(editingStudent.id, restUpdated);
+      // Then trigger the transfer for the programme fields
+      transferProgramme(editingStudent.id, editingStudent.courseId, editingStudent.group || '', editProgrammeEffectiveFrom);
     } else {
       updateStudent(editingStudent.id, editingStudent);
     }
@@ -1166,7 +1182,10 @@ export default function StudentsPage() {
               options={[
                 { value: '', label: 'Select a Programme' },
                 { value: 'Full Stack Developer', label: 'Full Stack Development' },
-                { value: 'Frontend Developer', label: 'Frontend Development (Legacy)' }
+                { value: 'Frontend Developer', label: 'Frontend Development' },
+                { value: 'AI Agents', label: 'AI Agents' },
+                { value: 'Flutter Development', label: 'Flutter Development' },
+                { value: 'Embedded Systems & Robotics', label: 'Embedded Systems & Robotics' },
               ]}
             />
             <Select
@@ -1175,16 +1194,18 @@ export default function StudentsPage() {
               onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
               options={batches.map((b) => ({ value: b.id, label: b.name }))}
             />
-            <Select
-              label="Group (Pre-Split)"
-              value={formData.group || ''}
-              onChange={(e) => setFormData({ ...formData, group: e.target.value })}
-              options={[
-                { value: '', label: 'Unassigned' },
-                { value: 'Group A', label: 'Group A' },
-                { value: 'Group B', label: 'Group B' }
-              ]}
-            />
+            {formData.courseId === 'Full Stack Developer' && (
+              <Select
+                label="Group (Pre-Split)"
+                value={formData.group || ''}
+                onChange={(e) => setFormData({ ...formData, group: e.target.value })}
+                options={[
+                  { value: '', label: 'Unassigned' },
+                  { value: 'Group A', label: 'Group A' },
+                  { value: 'Group B', label: 'Group B' }
+                ]}
+              />
+            )}
           </div>
 
           {/* Emergency Contact */}
@@ -1444,20 +1465,48 @@ export default function StudentsPage() {
                 options={[
                   { value: '', label: 'Select a Programme' },
                   { value: 'Full Stack Developer', label: 'Full Stack Development' },
-                  { value: 'Frontend Developer', label: 'Frontend Development (Legacy)' }
+                  { value: 'Frontend Developer', label: 'Frontend Development' },
+                  { value: 'AI Agents', label: 'AI Agents' },
+                  { value: 'Flutter Development', label: 'Flutter Development' },
+                  { value: 'Embedded Systems & Robotics', label: 'Embedded Systems & Robotics' },
                 ]}
               />
-              <Select
-                label="Group (Pre-Split)"
-                value={editingStudent.group || ''}
-                onChange={(e) => setEditingStudent({ ...editingStudent, group: e.target.value })}
-                options={[
-                  { value: '', label: 'Unassigned' },
-                  { value: 'Group A', label: 'Group A' },
-                  { value: 'Group B', label: 'Group B' }
-                ]}
-              />
+              {editingStudent.courseId === 'Full Stack Developer' && (
+                <Select
+                  label="Group (Pre-Split)"
+                  value={editingStudent.group || ''}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, group: e.target.value })}
+                  options={[
+                    { value: '', label: 'Unassigned' },
+                    { value: 'Group A', label: 'Group A' },
+                    { value: 'Group B', label: 'Group B' }
+                  ]}
+                />
+              )}
             </div>
+
+            {(() => {
+              const originalStudent = students.find((s) => s.id === editingStudent.id);
+              const hasProgrammeChanged = originalStudent && (
+                originalStudent.courseId !== editingStudent.courseId || 
+                originalStudent.group !== editingStudent.group
+              );
+              if (hasProgrammeChanged) {
+                return (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/40 rounded-xl space-y-2">
+                    <p className="text-xs text-amber-300 font-medium">Programme Transfer Detected</p>
+                    <Input
+                      label="Effective From Date *"
+                      type="date"
+                      required
+                      value={editProgrammeEffectiveFrom}
+                      onChange={(e) => setEditProgrammeEffectiveFrom(e.target.value)}
+                    />
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Select

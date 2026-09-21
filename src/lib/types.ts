@@ -343,3 +343,12 @@ export interface CareerSurveyResponse {
   remarks?: string;
   createdAt: string;
 }
+
+export interface ProgrammeHistory {
+  id: string;
+  studentId: string;
+  programme: string;
+  groupName: string | null;
+  effectiveFrom: string; // YYYY-MM-DD
+  createdAt?: string;
+}

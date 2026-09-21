@@ -34,7 +34,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
   onClose,
   onSuccess,
 }) => {
-  const { bulkImportAllAttendance } = useStore();
+  const { bulkImportAllAttendance, students, programmeHistory } = useStore();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
@@ -68,7 +68,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
     setParsedData(null);
 
     try {
-      const result = await parseAttendanceExcel(buffer);
+      const result = await parseAttendanceExcel(buffer, students, programmeHistory);
 
       if (result.summary.totalSessions === 0) {
         setParseError('No attendance sessions found in this workbook. Please ensure sheets match month names (May, June, July, August, September, April, etc.).');
@@ -264,6 +264,21 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                 Change File
               </Button>
             </div>
+
+            {/* Mismatch Warnings */}
+            {parsedData.summary.warnings?.length > 0 && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-400" />
+                  <h4 className="text-xs font-bold text-amber-300">Programme Mismatches Detected ({parsedData.summary.warnings.length})</h4>
+                </div>
+                <div className="max-h-32 overflow-y-auto space-y-1 pr-2">
+                  {parsedData.summary.warnings.map((warn, i) => (
+                    <p key={i} className="text-[11px] text-amber-200/80">{warn}</p>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Metrics Overview */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

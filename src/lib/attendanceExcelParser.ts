@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { AttendanceSession, AttendanceMark, MonthlyAttendance, Student } from './types';
+import { getStudentProgrammeAtDate, resolveStudentGroup } from './utils';
 
 export interface AttendanceParseSummary {
   detectedFormat: 'Full Stack Developer (Group A & B)' | 'Frontend Developer (React)' | 'Mixed / Custom';
@@ -22,6 +23,7 @@ export interface AttendanceParseSummary {
     groupBStudents: number;
     frontendStudents: number;
   }>;
+  warnings: string[];
 }
 
 export interface ParsedAttendanceData {
@@ -77,7 +79,9 @@ const parseDateStr = (rawDate: unknown, defaultMonth: string): { isoDate: string
  * 2. Frontend Developer / React (Single group table per sheet, row 2 subjects, row 3 dates, row 4+ students)
  */
 export const parseAttendanceExcel = async (
-  fileData: ArrayBuffer | Uint8Array
+  fileData: ArrayBuffer | Uint8Array,
+  existingStudents?: Student[],
+  programmeHistory?: any[] // Using any to avoid circular/missing type issues here, or import ProgrammeHistory
 ): Promise<ParsedAttendanceData> => {
   const workbook = XLSX.read(fileData, { type: 'array' });
 
@@ -89,6 +93,7 @@ export const parseAttendanceExcel = async (
 
   let hasGroupSections = false;
   let hasFrontendTable = false;
+  const warningsList: string[] = [];
 
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
@@ -122,6 +127,7 @@ export const parseAttendanceExcel = async (
     let gAStudentCount = 0;
     let gBStudentCount = 0;
     let feStudentCount = 0;
+
 
     // Helper to parse a group
     const parseTableBlock = (
@@ -195,6 +201,23 @@ export const parseAttendanceExcel = async (
 
         const normUt = utNo.toUpperCase();
         const studentId = `STU-${normUt}`;
+
+        if (existingStudents && programmeHistory) {
+          const storeStudent = existingStudents.find(s => s.utNumber === normUt);
+          if (storeStudent) {
+            const checkDate = `${ym}-28`;
+            const actualStudentInfo = getStudentProgrammeAtDate(storeStudent, programmeHistory, checkDate);
+            
+            let expectedProgramme = courseId;
+            if (courseId === 'CRS-TIC-01') expectedProgramme = 'Full Stack Developer';
+
+            if (actualStudentInfo.programme !== expectedProgramme && actualStudentInfo.programme !== courseName) {
+              warningsList.push(`Mismatch: ${name} (${utNo}) in ${ym}: Excel says ${expectedProgramme} but student history says ${actualStudentInfo.programme}.`);
+            } else if ((groupName === 'Group A' || groupName === 'Group B') && actualStudentInfo.group !== groupName) {
+              warningsList.push(`Mismatch: ${name} (${utNo}) in ${ym}: Excel says ${groupName} but student history says ${actualStudentInfo.group || 'None'}.`);
+            }
+          }
+        }
 
         if (!studentsMap.has(normUt)) {
           studentsMap.set(normUt, {
@@ -349,6 +372,7 @@ export const parseAttendanceExcel = async (
     frontendCount,
     totalMonthlyRecords: allMonthly.length,
     monthBreakdown,
+    warnings: warningsList,
   };
 
   return {

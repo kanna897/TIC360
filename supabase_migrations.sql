@@ -70,4 +70,24 @@ CREATE POLICY "Allow full access on absence_requests" ON absence_requests FOR AL
 DROP POLICY IF EXISTS "Allow full access on career_survey_responses" ON career_survey_responses;
 CREATE POLICY "Allow full access on career_survey_responses" ON career_survey_responses FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
+-- ==============================================================================
+-- 4. PROGRAMME HISTORY TABLE
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS programme_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    programme TEXT NOT NULL,
+    group_name TEXT,
+    effective_from DATE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for fast lookups
+CREATE INDEX IF NOT EXISTS idx_programme_history_student_id ON programme_history(student_id);
+CREATE INDEX IF NOT EXISTS idx_programme_history_effective_from ON programme_history(effective_from);
+
+ALTER TABLE programme_history ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow full access on programme_history" ON programme_history;
+CREATE POLICY "Allow full access on programme_history" ON programme_history FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
 COMMIT;

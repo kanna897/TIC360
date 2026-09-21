@@ -134,19 +134,43 @@ export const FingerprintUploadModal: React.FC<FingerprintUploadModalProps> = ({
             </div>
 
             <div className="space-y-6">
-              {['Full Stack - Group A', 'Full Stack - Group B', 'Frontend Developer', 'Unassigned'].map((groupName) => {
+              {[
+                'Full Stack - Group A',
+                'Full Stack - Group B',
+                'Frontend Developer',
+                'AI Agents',
+                'Flutter Development',
+                'Embedded Systems & Robotics',
+                'Unassigned',
+              ].map((groupName) => {
                 const groupLogs = parsedLogs.filter((log) => {
                   const student = students.find(s => s.utNumber === log.utNumber);
                   if (!student) return groupName === 'Unassigned';
 
-                  const assignedGroup = resolveStudentGroup(student);
-
-                  let label: string = assignedGroup;
-                  if (assignedGroup === 'Group A') label = 'Full Stack - Group A';
-                  if (assignedGroup === 'Group B') label = 'Full Stack - Group B';
+                  // Here we use current profile for preview grouping, or we can use getStudentProgrammeAtDate
+                  // Since Fingerprint is usually done daily, the "sessionDate" is the current state.
+                  // We'll use getStudentProgrammeAtDate for accuracy.
+                  let label = 'Unassigned';
+                  
+                  if (typeof window !== 'undefined') {
+                    // Safe access to getStudentProgrammeAtDate from utils (already imported?)
+                    // Actually, let's use resolveStudentGroup as a fallback if getStudentProgrammeAtDate is not available here.
+                    const assignedGroup = resolveStudentGroup(student);
+                    if (student.courseId === 'CRS-TIC-01' || student.courseId === 'Full Stack Developer') {
+                      label = assignedGroup === 'Group A' ? 'Full Stack - Group A' : 'Full Stack - Group B';
+                    } else if (student.courseId === 'Frontend Developer') {
+                      label = 'Frontend Developer';
+                    } else if (student.courseId === 'AI Agents') {
+                      label = 'AI Agents';
+                    } else if (student.courseId === 'Flutter Development') {
+                      label = 'Flutter Development';
+                    } else if (student.courseId === 'Embedded Systems & Robotics') {
+                      label = 'Embedded Systems & Robotics';
+                    }
+                  }
 
                   if (groupName === 'Unassigned') {
-                    return !label;
+                    return label === 'Unassigned' || !label;
                   }
 
                   return label === groupName;

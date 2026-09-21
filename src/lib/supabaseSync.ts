@@ -484,6 +484,7 @@ export const fetchAllFromSupabase = async () => {
     bankDetailsRaw,
     absenceRequestsRaw,
     careerSurveyResponsesRaw,
+    programmeHistoryRaw,
   ] = await Promise.all([
     fetchAllRowsFromTable('students', '*', { column: 'created_at', ascending: false }),
     fetchAllRowsFromTable('courses', '*'),
@@ -502,6 +503,7 @@ export const fetchAllFromSupabase = async () => {
     fetchAllRowsFromTable('student_bank_details', '*'),
     fetchAllRowsFromTable('absence_requests', '*', { column: 'created_at', ascending: false }),
     fetchAllRowsFromTable('career_survey_responses', '*', { column: 'created_at', ascending: false }),
+    fetchAllRowsFromTable('programme_history', '*', { column: 'effective_from', ascending: true }),
   ]);
 
   const courses = (coursesRaw || []).map(fromDbCourse);
@@ -636,6 +638,14 @@ export const fetchAllFromSupabase = async () => {
       return acc;
     }, []),
     careerSurveyResponses: (careerSurveyResponsesRaw || []).map(fromDbCareerSurvey),
+    programmeHistory: (programmeHistoryRaw || []).map((h: any) => ({
+      id: h.id,
+      studentId: h.student_id,
+      programme: h.programme,
+      groupName: h.group_name,
+      effectiveFrom: h.effective_from,
+      createdAt: h.created_at,
+    })),
   };
 };
 
@@ -727,6 +737,14 @@ export const syncStudentBankDetails = (studentId: string, bankDetails: any, full
     beneficiary_name: bankDetails.beneficiaryName || fullName || 'Beneficiary',
     district: bankDetails.district || district || 'Jaffna',
     updated_at: new Date().toISOString(),
+  }]);
+
+export const syncProgrammeHistory = (studentId: string, programme: string, groupName: string | null, effectiveFrom: string) =>
+  safeUpsert('programme_history', [{
+    student_id: studentId,
+    programme: programme,
+    group_name: groupName || null,
+    effective_from: effectiveFrom,
   }]);
 
 export const syncDeleteStudent = (id: string) => safeDelete('students', id);

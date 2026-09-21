@@ -16,6 +16,7 @@ import {
   SystemSettings,
   AttendanceSession,
   AttendanceMark,
+  ProgrammeHistory,
 } from './types';
 
 export const initialOrgProfile: OrgProfile = {
@@ -80,3 +81,5 @@ export const initialSystemSettings: SystemSettings = {
 export const seedData = {
   sessions: [] as AttendanceSession[],
 };
+
+export const initialProgrammeHistory: ProgrammeHistory[] = [];
