@@ -49,6 +49,11 @@ export interface AbsenceRequest {
   createdAt: string;
 }
 
+export interface StudentSectionAllocation {
+  section: string;
+  effectiveFrom: string; // YYYY-MM-DD
+}
+
 export interface Student {
   id: string;
   utNumber: string;
@@ -67,6 +72,7 @@ export interface Student {
   courseId: string;
   courseName: string;
   group?: 'Group A' | 'Group B' | 'A' | 'B' | 'Frontend Developer' | string;
+  sectionAllocations?: StudentSectionAllocation[];
   photoUrl?: string;
   isBlossomTrust: boolean;
   blossomAmount?: number;
@@ -95,6 +101,9 @@ export interface Batch {
   startDate: string;
   endDate?: string;
   status: 'Active' | 'Completed' | 'Upcoming';
+  isSplitEnabled?: boolean;
+  splitDate?: string;
+  availableSections?: string[];
 }
 
 export type AttendanceStatus = 'Good Attendance' | 'Low Attendance' | 'Critical Attendance';
@@ -105,6 +114,7 @@ export interface AttendanceSession {
   id: string;
   batchId?: string;
   group: string;
+  section?: string;
   month: string; // 'YYYY-MM' e.g. '2026-04'
   date: string; // 'YYYY-MM-DD' e.g. '2026-04-01'
   displayDate: string; // '01.04.2026'
@@ -298,6 +308,7 @@ export interface SystemSettings {
   attendanceLowThreshold: number; // e.g. 60
   blossomMonthlyMax: number; // e.g. 15000
   paymentEligibilityAttendanceThreshold: number; // e.g. 80
+  blossomMonthlyThresholds?: Record<string, number>; // e.g. { '2026-08': 80 }
   courses: Course[];
   batches: Batch[];
   dropoutReasons: DropoutReason[];

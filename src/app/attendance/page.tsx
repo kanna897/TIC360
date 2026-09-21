@@ -36,7 +36,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { exportToCSV, exportToExcel, formatMonthName, getStudentDropoutStatusInMonth, resolveStudentGroup } from '@/lib/utils';
+import { exportToCSV, exportToExcel, formatMonthName, getStudentDropoutStatusInMonth, resolveStudentGroup, getStudentSectionAtDate } from '@/lib/utils';
 import { FingerprintUploadModal } from '@/components/attendance/FingerprintUploadModal';
 import { BulkAttendanceUploadModal } from '@/components/attendance/BulkAttendanceUploadModal';
 
@@ -59,7 +59,7 @@ export default function AttendancePage() {
     currentRole,
   } = useStore();
 
-  const [selectedGroup, setSelectedGroup] = useState<'Full Stack - Group A' | 'Full Stack - Group B' | 'Frontend Developer' | 'all'>('Full Stack - Group A');
+  const [selectedGroup, setSelectedGroup] = useState<string>('Full Stack - Group A');
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [selectedMonthOnly, setSelectedMonthOnly] = useState<string>('04'); // Default '04' = April (Matches user's Excel)
   const [selectedBatch, setSelectedBatch] = useState<string>('all');
@@ -82,6 +82,21 @@ export default function AttendancePage() {
 
   const selectedMonthString = `${selectedYear}-${selectedMonthOnly}`; // '2026-04'
 
+  const activeBatchObj = useMemo(() => {
+    return batches.find(b => b.id === (selectedBatch === 'all' ? batches[0]?.id : selectedBatch));
+  }, [batches, selectedBatch]);
+
+  // Available groups/sections based on batch
+  const availableGroups = useMemo(() => {
+    const baseGroups = ['Full Stack - Group A', 'Full Stack - Group B', 'Frontend Developer'];
+    if (activeBatchObj?.isSplitEnabled && activeBatchObj.availableSections) {
+      activeBatchObj.availableSections.forEach(sec => {
+        if (!baseGroups.includes(sec)) baseGroups.push(sec);
+      });
+    }
+    return baseGroups;
+  }, [activeBatchObj]);
+
   // Filter students by selected Group and Batch
   // Dropout-month awareness: a dropout student is only shown in the month they dropped out
   // and all months BEFORE that. They are hidden from subsequent months.
@@ -102,25 +117,24 @@ export default function AttendancePage() {
       const { isAfterDropoutMonth } = getStudentDropoutStatusInMonth(s, dropouts, selectedMonthString);
       if (isAfterDropoutMonth) return false;
 
-      const resolvedGrp = resolveStudentGroup(s);
-
-      // Explicitly protect UT011700 as Full Stack (never Frontend)
-      const isFrontend =
-        cleanUt !== 'UT011700' &&
-        (s.courseName === 'Frontend Developer' ||
-          s.courseId === 'Frontend Developer' ||
-          resolvedGrp === 'Frontend Developer');
-      const isFullStack = !isFrontend;
-
+      // Course Split logic: determine section on the 1st and 28th of the month
+      const sectionStart = getStudentSectionAtDate(s, `${selectedMonthString}-01`, activeBatchObj);
+      const sectionEnd = getStudentSectionAtDate(s, `${selectedMonthString}-28`, activeBatchObj);
+      
       let matchesGroup = false;
-      if (selectedGroup === 'all') matchesGroup = true;
-      else if (selectedGroup === 'Full Stack - Group A') {
-        matchesGroup = isFullStack && resolvedGrp === 'Group A';
+      if (selectedGroup === 'all') {
+        matchesGroup = true;
+      } else if (selectedGroup === 'Full Stack - Group A') {
+        matchesGroup = sectionStart === 'Group A' || sectionEnd === 'Group A';
       } else if (selectedGroup === 'Full Stack - Group B') {
-        matchesGroup = isFullStack && resolvedGrp === 'Group B';
+        matchesGroup = sectionStart === 'Group B' || sectionEnd === 'Group B';
       } else if (selectedGroup === 'Frontend Developer') {
-        matchesGroup = isFrontend || resolvedGrp === 'Frontend Developer';
+        matchesGroup = sectionStart === 'Frontend Developer' || sectionEnd === 'Frontend Developer';
+      } else {
+        // Any custom section configured in batch
+        matchesGroup = sectionStart === selectedGroup || sectionEnd === selectedGroup;
       }
+
       const matchesBatch = selectedBatch === 'all' || s.batchId === selectedBatch;
       const matchesSearch =
         s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -141,8 +155,10 @@ export default function AttendancePage() {
     return attendanceSessions
       .filter((ses) => {
         const matchesMonth = ses.month === selectedMonthString;
+        const matchesBatch = selectedBatch === 'all' || ses.batchId === selectedBatch || !ses.batchId; // some old sessions might lack batchId
+        if (!matchesMonth || !matchesBatch) return false;
         
-        let targetGroup = 'All';
+        let targetGroup = selectedGroup;
         if (selectedGroup === 'Full Stack - Group A') targetGroup = 'Group A';
         if (selectedGroup === 'Full Stack - Group B') targetGroup = 'Group B';
         if (selectedGroup === 'Frontend Developer') targetGroup = 'Frontend Developer';
@@ -151,13 +167,13 @@ export default function AttendancePage() {
           selectedGroup === 'all' ||
           ses.group === 'All' ||
           ses.group === targetGroup ||
-          ses.group === (selectedGroup as string) ||
+          ses.group === selectedGroup ||
           (targetGroup === 'Group A' && ses.group === ('A' as any));
           
-        return matchesMonth && matchesGroup;
+        return matchesGroup;
       })
       .sort((a, b) => a.date.localeCompare(b.date));
-  }, [attendanceSessions, selectedMonthString, selectedGroup]);
+  }, [attendanceSessions, selectedMonthString, selectedGroup, selectedBatch]);
 
   // Handle cell click (Toggle: P -> A -> L -> P)
   const handleToggleCell = (sessionId: string, studentId: string) => {
@@ -432,44 +448,31 @@ export default function AttendancePage() {
       {/* Main 2-Tab Switcher (Matching Exact Green Pill Design) */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-2 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Tab 1: FULL STACK - GROUP A */}
-          <button
-            onClick={() => setSelectedGroup('Full Stack - Group A')}
-            className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2.5 ${
-              selectedGroup === 'Full Stack - Group A'
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>👨‍💻 FULL STACK - GROUP &quot;A&quot;</span>
-          </button>
+          {availableGroups.map((group) => {
+            let label = group;
+            let icon = '👨‍💻';
+            if (group === 'Full Stack - Group A') label = 'FULL STACK - GROUP "A"';
+            if (group === 'Full Stack - Group B') label = 'FULL STACK - GROUP "B"';
+            if (group === 'Frontend Developer') { label = 'FRONTEND DEVELOPER'; icon = '⚛️'; }
+            if (group === 'AI Agents') { label = 'AI AGENTS'; icon = '🤖'; }
+            if (group === 'Flutter Development') { label = 'FLUTTER DEVELOPMENT'; icon = '📱'; }
+            if (group === 'Embedded Systems & Robotics') { label = 'EMBEDDED SYSTEMS & ROBOTICS'; icon = '⚙️'; }
 
-          {/* Tab 2: FULL STACK - GROUP B */}
-          <button
-            onClick={() => setSelectedGroup('Full Stack - Group B')}
-            className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2.5 ${
-              selectedGroup === 'Full Stack - Group B'
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>👨‍💻 FULL STACK - GROUP &quot;B&quot;</span>
-          </button>
-
-          {/* Tab 3: FRONTEND DEVELOPER */}
-          <button
-            onClick={() => setSelectedGroup('Frontend Developer')}
-            className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2.5 ${
-              selectedGroup === 'Frontend Developer'
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>⚛️ FRONTEND DEVELOPER</span>
-          </button>
+            return (
+              <button
+                key={group}
+                onClick={() => setSelectedGroup(group)}
+                className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2.5 ${
+                  selectedGroup === group
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span className="uppercase">{icon} {label}</span>
+              </button>
+            );
+          })}
 
 
         </div>
@@ -1043,6 +1046,9 @@ export default function AttendancePage() {
                 { value: 'Group A', label: 'Group A' },
                 { value: 'Group B', label: 'Group B' },
                 { value: 'All', label: 'All Groups (Shared Session)' },
+                ...availableGroups
+                  .filter(g => g !== 'Full Stack - Group A' && g !== 'Full Stack - Group B')
+                  .map(g => ({ value: g, label: g }))
               ]}
             />
           </div>
@@ -1107,6 +1113,9 @@ export default function AttendancePage() {
                   { value: 'Group A', label: 'Group A' },
                   { value: 'Group B', label: 'Group B' },
                   { value: 'All', label: 'All Groups' },
+                  ...availableGroups
+                    .filter(g => g !== 'Full Stack - Group A' && g !== 'Full Stack - Group B')
+                    .map(g => ({ value: g, label: g }))
                 ]}
               />
             </div>

@@ -203,6 +203,7 @@ interface StoreContextType {
   addCourse: (course: Omit<Course, 'id'>) => void;
   updateCourse: (id: string, updated: Partial<Course>) => void;
   addBatch: (batch: Omit<Batch, 'id'>) => void;
+  updateBatch: (id: string, updates: Partial<Batch>) => void;
   updateSettings: (newSettings: Partial<SystemSettings>) => void;
   updateOrgProfile: (profile: Partial<OrgProfile>) => void;
 
@@ -926,7 +927,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       if (student.isBlossomTrust) {
         const isDropout = student.currentStatus === 'Dropout';
         const isManualLowAtt = student.currentStatus === 'Low Attendance';
-        const isLowAttendance = rec.attendancePercentage < settings.paymentEligibilityAttendanceThreshold;
+        
+        const monthlyThreshold = settings.blossomMonthlyThresholds?.[rec.month] ?? settings.paymentEligibilityAttendanceThreshold;
+        const isLowAttendance = rec.attendancePercentage < monthlyThreshold;
 
         let isEligible = true;
         let ineligibilityReason: string | undefined = undefined;
@@ -941,14 +944,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         } else if (isManualLowAtt) {
           isEligible = false;
           ineligibilityReason = `Low Attendance (Manually Marked)`;
-          amount = 0;
           paymentStatus = 'Not Eligible';
         } else if (isLowAttendance && !student.isDummy) {
-          // Normal students are dynamically checked; dummy students skip dynamic low attendance check if not marked manually
-          isEligible = false;
-          ineligibilityReason = `Low Attendance (${rec.attendancePercentage.toFixed(1)}% < ${settings.paymentEligibilityAttendanceThreshold}% threshold)`;
-          amount = 0;
-          paymentStatus = 'Not Eligible';
+          // Low attendance acts only as a warning indicator now, not an automatic disqualification
+          // isEligible remains true, amount remains unchanged
+          ineligibilityReason = `Low Attendance (${rec.attendancePercentage.toFixed(1)}% < ${monthlyThreshold}%)`;
         }
 
 
@@ -1010,7 +1010,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       const att = monthlyAttendance.find((a) => a.studentId === student.id && a.month === month);
       const attPct = att ? att.attendancePercentage : 0;
       const isDropout = student.currentStatus === 'Dropout';
-      const isLowAtt = attPct < settings.paymentEligibilityAttendanceThreshold;
+      const monthlyThreshold = settings.blossomMonthlyThresholds?.[month] ?? settings.paymentEligibilityAttendanceThreshold;
+      const isLowAtt = attPct < monthlyThreshold;
 
       let isEligible = true;
       let ineligibilityReason: string | undefined = undefined;
@@ -1023,10 +1024,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         amount = 0;
         paymentStatus = 'Not Eligible';
       } else if (isLowAtt) {
-        isEligible = false;
-        ineligibilityReason = `Low Attendance (${attPct.toFixed(1)}% < ${settings.paymentEligibilityAttendanceThreshold}%)`;
-        amount = 0;
-        paymentStatus = 'Not Eligible';
+        // Low attendance acts only as a warning indicator now, not an automatic disqualification
+        // isEligible remains true, amount remains unchanged
+        ineligibilityReason = `Low Attendance (${attPct.toFixed(1)}% < ${monthlyThreshold}%)`;
       }
 
       const existing = blossomPayments.find((p) => p.studentId === student.id && p.month === month);
@@ -1397,7 +1397,17 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       id: `BAT-${String(batches.length + 1).padStart(2, '0')}`,
     };
     setBatches((prev) => [...prev, newBatch]);
+    addAuditLog('Batch Created', 'Batch', newBatch.id, `Added batch ${newBatch.name}`);
     if (checkIsSupabaseConfigured()) syncBatch(newBatch);
+  };
+
+  const updateBatch = (id: string, updates: Partial<Batch>) => {
+    setBatches((prev) => prev.map((b) => (b.id === id ? { ...b, ...updates } : b)));
+    addAuditLog('Batch Updated', 'Batch', id, `Updated batch configuration`);
+    if (checkIsSupabaseConfigured()) {
+      const batch = batches.find((b) => b.id === id);
+      if (batch) syncBatch({ ...batch, ...updates });
+    }
   };
 
   const updateSettings = (newSettings: Partial<SystemSettings>) => {
@@ -1742,6 +1752,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         addCourse,
         updateCourse,
         addBatch,
+        updateBatch,
         updateSettings,
         updateOrgProfile,
         resetToDefaults,

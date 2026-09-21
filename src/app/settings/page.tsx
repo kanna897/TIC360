@@ -54,6 +54,7 @@ export default function SettingsPage() {
     addCourse,
     batches,
     addBatch,
+    updateBatch,
     students,
     monthlyAttendance,
     blossomPayments,
@@ -68,7 +69,7 @@ export default function SettingsPage() {
     currentRole,
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'rules' | 'courses' | 'org' | 'database' | 'audit'>('rules');
+  const [activeTab, setActiveTab] = useState<'rules' | 'courses' | 'batches' | 'org' | 'database' | 'audit'>('rules');
   const [isSavedNotice, setIsSavedNotice] = useState(false);
 
   // Settings form state
@@ -78,6 +79,19 @@ export default function SettingsPage() {
     blossomMonthlyMax: settings.blossomMonthlyMax,
     paymentEligibilityAttendanceThreshold: settings.paymentEligibilityAttendanceThreshold,
   });
+
+  const [monthlyThresholdForm, setMonthlyThresholdForm] = useState({
+    month: new Date().toISOString().slice(0, 7),
+    threshold: settings.blossomMonthlyThresholds?.[new Date().toISOString().slice(0, 7)] ?? settings.paymentEligibilityAttendanceThreshold,
+  });
+
+  useEffect(() => {
+    setMonthlyThresholdForm((prev) => ({
+      ...prev,
+      threshold: settings.blossomMonthlyThresholds?.[prev.month] ?? settings.paymentEligibilityAttendanceThreshold
+    }));
+  }, [monthlyThresholdForm.month, settings.blossomMonthlyThresholds, settings.paymentEligibilityAttendanceThreshold]);
+
 
   // Org form state
   const [orgForm, setOrgForm] = useState(orgProfile);
@@ -131,6 +145,18 @@ export default function SettingsPage() {
     durationMonths: 6,
     isActive: true,
   });
+
+  const handleSaveMonthlyThreshold = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateSettings({
+      blossomMonthlyThresholds: {
+        ...(settings.blossomMonthlyThresholds || {}),
+        [monthlyThresholdForm.month]: Number(monthlyThresholdForm.threshold),
+      }
+    });
+    setIsSavedNotice(true);
+    setTimeout(() => setIsSavedNotice(false), 3000);
+  };
 
   const handleSaveRules = (e: React.FormEvent) => {
     e.preventDefault();
@@ -295,14 +321,24 @@ export default function SettingsPage() {
         </button>
         <button
           onClick={() => setActiveTab('courses')}
-          className={`pb-3 font-bold flex items-center gap-2 whitespace-nowrap transition-colors border-b-2 ${
+          className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${
             activeTab === 'courses'
-              ? 'border-blue-500 text-blue-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-emerald-500 text-emerald-400'
+              : 'border-transparent text-slate-400 hover:text-slate-300'
           }`}
         >
-          <BookOpen className="w-4 h-4" />
-          Course Catalog ({courses.length})
+          Course Catalog
+        </button>
+        
+        <button
+          onClick={() => setActiveTab('batches')}
+          className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${
+            activeTab === 'batches'
+              ? 'border-amber-500 text-amber-400'
+              : 'border-transparent text-slate-400 hover:text-slate-300'
+          }`}
+        >
+          Batches & Sections
         </button>
         <button
           onClick={() => setActiveTab('org')}
@@ -405,6 +441,41 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               </form>
+
+              <div className="mt-8 pt-8 border-t border-slate-800">
+                <h3 className="text-lg font-bold text-white mb-2">Blossom Trust Monthly Attendance Eligibility</h3>
+                <p className="text-sm text-slate-400 mb-4">
+                  Set a custom attendance eligibility percentage for a specific month. This acts as a visual warning threshold for payments.
+                </p>
+                <form onSubmit={handleSaveMonthlyThreshold} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Month (YYYY-MM) *"
+                      type="month"
+                      value={monthlyThresholdForm.month}
+                      onChange={(e) =>
+                        setMonthlyThresholdForm({ ...monthlyThresholdForm, month: e.target.value })
+                      }
+                    />
+                    <Input
+                      label="Required Attendance (%) *"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={monthlyThresholdForm.threshold}
+                      onChange={(e) =>
+                        setMonthlyThresholdForm({ ...monthlyThresholdForm, threshold: Number(e.target.value) })
+                      }
+                      helperText="Default fallback is used if not set."
+                    />
+                  </div>
+                  <div className="flex justify-end pt-3">
+                    <Button type="submit" variant="secondary">
+                      Save Monthly Threshold
+                    </Button>
+                  </div>
+                </form>
+              </div>
             </CardContent>
           </Card>
 
@@ -942,7 +1013,81 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* TAB 3: ORG PROFILE */}
+      {/* TAB: BATCHES */}
+      {activeTab === 'batches' && (
+        <div className="space-y-4">
+          <p className="text-xs text-slate-400">
+            Manage batches and configure course splits/sections (e.g. splitting Full Stack into Frontend, AI, etc.)
+          </p>
+          
+          <div className="grid grid-cols-1 gap-4">
+            {batches.map((batch) => (
+              <Card key={batch.id} className="p-5 space-y-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-lg font-extrabold text-white">{batch.name}</h3>
+                    <p className="text-sm text-slate-400">{batch.courseName}</p>
+                  </div>
+                  <Badge variant={batch.status === 'Active' ? 'active' : 'neutral'}>
+                    {batch.status}
+                  </Badge>
+                </div>
+                
+                <div className="pt-4 border-t border-slate-800">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Course Split Configuration</h4>
+                      <p className="text-xs text-slate-400">Enable advanced sections for this batch</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer" 
+                        checked={!!batch.isSplitEnabled}
+                        onChange={(e) => updateBatch(batch.id, { isSplitEnabled: e.target.checked })}
+                      />
+                      <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                    </label>
+                  </div>
+                  
+                  {batch.isSplitEnabled && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                      <div>
+                        <Input
+                          label="Split Date"
+                          type="date"
+                          value={batch.splitDate || ''}
+                          onChange={(e) => updateBatch(batch.id, { splitDate: e.target.value })}
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Attendance on or after this date will use post-split sections.
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                          Available Sections (comma separated)
+                        </label>
+                        <Input
+                          value={(batch.availableSections || []).join(', ')}
+                          placeholder="Frontend Development, AI Agents..."
+                          onChange={(e) => updateBatch(batch.id, { 
+                            availableSections: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                          })}
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          These will be available for student assignment.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: ORG PROFILE */}
       {activeTab === 'org' && (
         <Card className="max-w-2xl">
           <CardHeader>

@@ -50,6 +50,7 @@ export const initialSystemSettings: SystemSettings = {
   attendanceLowThreshold: 60,
   blossomMonthlyMax: 15000,
   paymentEligibilityAttendanceThreshold: 75,
+  blossomMonthlyThresholds: {},
   courses: initialCourses,
   batches: initialBatches,
   dropoutReasons: [

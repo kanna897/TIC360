@@ -115,12 +115,22 @@ export default function BlossomPaymentsPage() {
 
   // Payments for this month, dynamically synced with live attendance
   const currentMonthPayments = useMemo(() => {
+    const monthlyThreshold = settings.blossomMonthlyThresholds?.[selectedMonthString] ?? settings.paymentEligibilityAttendanceThreshold;
     return blossomPayments
       .filter((p) => p.month === selectedMonthString)
       .map(p => {
+         const student = students.find((s) => s.id === p.studentId);
+         const isDropout = student?.currentStatus === 'Dropout';
          const liveAtt = monthlyAttendance.find(m => m.studentId === p.studentId && m.month === selectedMonthString);
          const attPct = liveAtt ? liveAtt.attendancePercentage : 0;
-         const isEligible = attPct >= settings.paymentEligibilityAttendanceThreshold;
+         
+         const isLowAtt = attPct < monthlyThreshold;
+         
+         // Only Dropouts or manually marked students are forced to Not Eligible.
+         // Low attendance is just a visual warning now.
+         let isEligible = p.isEligible;
+         if (isDropout) isEligible = false;
+
          let newStatus = p.status;
          if (!isEligible && p.status !== 'Paid') newStatus = 'Not Eligible';
          if (isEligible && p.status === 'Not Eligible') newStatus = 'Eligible';
@@ -129,6 +139,8 @@ export default function BlossomPaymentsPage() {
             ...p,
             attendancePercentage: attPct,
             isEligible,
+            isLowAtt,
+            monthlyThreshold,
             status: newStatus
          };
       });
@@ -863,8 +875,10 @@ export default function BlossomPaymentsPage() {
 
             <Card className="p-4 border-amber-500/30">
               <span className="text-[11px] font-bold text-slate-400 uppercase">Monthly Rule</span>
-              <p className="text-sm font-bold text-amber-300 mt-1">Threshold: 80.0%</p>
-              <span className="text-[10px] text-slate-400">Low attendance = LKR 0 for month</span>
+              <p className="text-sm font-bold text-amber-300 mt-1">
+                Threshold: {(settings.blossomMonthlyThresholds?.[selectedMonthString] ?? settings.paymentEligibilityAttendanceThreshold).toFixed(1)}%
+              </p>
+              <span className="text-[10px] text-slate-400">Low attendance = Warning indicator</span>
             </Card>
           </div>
 
@@ -900,7 +914,7 @@ export default function BlossomPaymentsPage() {
                     filteredPayments.map((pay) => {
                       const student = students.find((s) => s.id === pay.studentId);
                       return (
-                        <tr key={pay.id} className="hover:bg-slate-900/40 transition-colors">
+                        <tr key={pay.id} className={`transition-colors ${pay.isLowAtt && pay.isEligible ? 'bg-amber-950/20 hover:bg-amber-900/30 border-l-2 border-amber-500' : 'hover:bg-slate-900/40'}`}>
                           {/* Scholar */}
                           <td className="py-3.5 px-4 sm:px-6">
                             <p className="font-bold text-slate-100">{pay.studentName}</p>
@@ -909,16 +923,20 @@ export default function BlossomPaymentsPage() {
 
                           {/* Attendance */}
                           <td className="py-3.5 px-4">
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className={`font-mono font-bold ${
-                                  pay.attendancePercentage >= 80 ? 'text-emerald-400' : 'text-rose-400'
-                                }`}
-                              >
-                                {pay.attendancePercentage.toFixed(1)}%
-                              </span>
-                              {pay.attendancePercentage < 80 && (
-                                <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className={`font-mono font-bold ${
+                                    !pay.isLowAtt ? 'text-emerald-400' : 'text-amber-400'
+                                  }`}
+                                >
+                                  {pay.attendancePercentage.toFixed(1)}%
+                                </span>
+                              </div>
+                              {pay.isLowAtt && pay.isEligible && (
+                                <span className="text-[10px] font-bold text-amber-400 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-500/30 w-fit">
+                                  🟡 LOW ATTENDANCE
+                                </span>
                               )}
                             </div>
                           </td>
@@ -943,7 +961,7 @@ export default function BlossomPaymentsPage() {
                           <td className="py-3.5 px-4">
                             {pay.isEligible ? (
                               <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Eligible (&gt;=80%)
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Eligible (&gt;={pay.monthlyThreshold}%)
                               </span>
                             ) : (
                               <div className="space-y-0.5">

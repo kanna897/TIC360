@@ -512,7 +512,14 @@ export const fetchAllFromSupabase = async () => {
   });
 
   const bankMap = new Map((bankDetailsRaw || []).map((b: any) => [b.student_id, b]));
-  const paymentMap = new Map((blossomPayRaw || []).map((p: any) => [p.student_id, p]));
+  
+  const paymentMap = new Map();
+  const sortedPayments = [...(blossomPayRaw || [])].sort((a: any, b: any) => (a.month > b.month ? 1 : -1));
+  sortedPayments.forEach((p: any) => {
+    if (!paymentMap.has(p.student_id) || Number(p.amount) > 0) {
+      paymentMap.set(p.student_id, p);
+    }
+  });
 
   // Enrich students with batch/course names, bank details, and blossomAmount
   const students = (studentsRaw || []).map(s => {
