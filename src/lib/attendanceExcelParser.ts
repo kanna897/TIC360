@@ -311,14 +311,14 @@ export const parseAttendanceExcel = async (
       // Format 1: Full Stack with Group A and Group B
       hasGroupSections = true;
       const gAEnd = gBHeader !== -1 ? gBHeader : rows.length;
-      gASessionCount = parseTableBlock(gAHeader, gAEnd, 'Group A', 'GA', 'CRS-TIC-01', 'Full-Stack Web Development');
+      gASessionCount = parseTableBlock(gAHeader, gAEnd, 'Group A', 'GA', 'CRS-TIC-01', 'Full Stack Developer');
 
       for (let r = gAHeader + 4; r < gAEnd; r++) {
         if (rows[r] && typeof rows[r][0] === 'number' && rows[r][1]) gAStudentCount++;
       }
 
       if (gBHeader !== -1) {
-        gBSessionCount = parseTableBlock(gBHeader, rows.length, 'Group B', 'GB', 'CRS-TIC-01', 'Full-Stack Web Development');
+        gBSessionCount = parseTableBlock(gBHeader, rows.length, 'Group B', 'GB', 'CRS-TIC-01', 'Full Stack Developer');
         for (let r = gBHeader + 4; r < rows.length; r++) {
           if (rows[r] && typeof rows[r][0] === 'number' && rows[r][1]) gBStudentCount++;
         }
