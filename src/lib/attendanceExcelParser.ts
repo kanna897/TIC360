@@ -218,9 +218,9 @@ export const parseAttendanceExcel = async (
             if (courseId === 'CRS-TIC-01') expectedProgramme = 'Full Stack Developer';
 
             if (actualStudentInfo.programme !== expectedProgramme && actualStudentInfo.programme !== courseName) {
-              warningsList.push(`Mismatch: ${name} (${utNo}) in ${ym}: Excel says ${expectedProgramme} but student history says ${actualStudentInfo.programme}.`);
+              // warningsList.push(`Mismatch: ${name} (${utNo}) in ${ym}: Excel says ${expectedProgramme} but student history says ${actualStudentInfo.programme}.`);
             } else if ((groupName === 'Group A' || groupName === 'Group B') && actualStudentInfo.group !== groupName) {
-              warningsList.push(`Mismatch: ${name} (${utNo}) in ${ym}: Excel says ${groupName} but student history says ${actualStudentInfo.group || 'None'}.`);
+              // warningsList.push(`Mismatch: ${name} (${utNo}) in ${ym}: Excel says ${groupName} but student history says ${actualStudentInfo.group || 'None'}.`);
             }
           }
         }
