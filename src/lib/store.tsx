@@ -1539,9 +1539,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     // Commit merged students
     const mergedStudents = Array.from(existingMap.values());
     setStudents(mergedStudents);
-    if (checkIsSupabaseConfigured()) {
-      mergedStudents.forEach(s => syncStudent(s));
-    }
 
     // Step 2: Remap marks from parser IDs to real student IDs
     // Parser keys marks by "STU-{UT}" and also "{UT}" — we need to re-key by the real stu.id
@@ -1596,23 +1593,35 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
     // Step 5: Sync to Supabase
     if (checkIsSupabaseConfigured()) {
-      if (sessions.length > 0) syncAttendanceSessions(sessions);
-      
-      const bulkMarks: object[] = [];
-      Object.keys(remappedMarks).forEach((sId) => {
-        Object.keys(remappedMarks[sId]).forEach((stuId) => {
-          bulkMarks.push({
-            id: `MARK-${sId}-${stuId}`,
-            session_id: sId,
-            student_id: stuId,
-            mark: remappedMarks[sId][stuId],
+      import('./supabaseSync').then(({ safeUpsert, syncStudent, syncAttendanceSessions, syncMonthlyAttendance }) => {
+        // Ensure students exist first to prevent foreign key constraint failures
+        Promise.all(mergedStudents.map(s => syncStudent(s))).then(() => {
+          // Then ensure sessions exist
+          const sessionPromise = sessions.length > 0 ? syncAttendanceSessions(sessions) : Promise.resolve();
+          sessionPromise.then(() => {
+            // Finally insert marks and monthly records
+            const bulkMarks: any[] = [];
+            Object.keys(remappedMarks).forEach((sId) => {
+              Object.keys(remappedMarks[sId]).forEach((stuId) => {
+                bulkMarks.push({
+                  id: `MARK-${sId}-${stuId}`,
+                  session_id: sId,
+                  student_id: stuId,
+                  mark: remappedMarks[sId][stuId],
+                });
+              });
+            });
+
+            if (bulkMarks.length > 0) {
+              safeUpsert('attendance_marks', bulkMarks, { onConflict: 'session_id,student_id' });
+            }
+
+            if (remappedMonthly.length > 0) {
+              syncMonthlyAttendance(remappedMonthly);
+            }
           });
         });
-      });
-      if (bulkMarks.length > 0) {
-        safeUpsert('attendance_marks', bulkMarks, { onConflict: 'session_id,student_id' });
-      }
-      if (remappedMonthly.length > 0) syncMonthlyAttendance(remappedMonthly);
+      }).catch(console.error);
     }
     addAuditLog('Bulk Attendance Import', 'Attendance', 'All', `Imported ${sessions.length} sessions, ${remappedMonthly.length} monthly records, and ${newStudents?.length || 0} students`);
   };
