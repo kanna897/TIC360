@@ -1511,14 +1511,15 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     // Start with existing students
     const existingMap = new Map<string, Student>();
     students.forEach((s) => {
-      existingMap.set(s.utNumber.toUpperCase(), s);
-      utToIdMap.set(s.utNumber.toUpperCase(), s.id);
+      const cleanUt = (s.utNumber || '').trim().toUpperCase();
+      existingMap.set(cleanUt, s);
+      utToIdMap.set(cleanUt, s.id);
     });
 
     // Merge in new students
     if (newStudents && newStudents.length > 0) {
       newStudents.forEach((s) => {
-        const normUt = s.utNumber.toUpperCase();
+        const normUt = (s.utNumber || '').trim().toUpperCase();
         if (!existingMap.has(normUt)) {
           existingMap.set(normUt, s);
           utToIdMap.set(normUt, s.id);
@@ -1552,7 +1553,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       const processed = new Set<string>();
       Object.keys(sessionMarks).forEach((key) => {
         // Normalize: extract UT number from key
-        let utNum = key.toUpperCase();
+        let utNum = (key || '').trim().toUpperCase();
         if (utNum.startsWith('STU-')) utNum = utNum.substring(4);
         
         if (processed.has(utNum)) return;

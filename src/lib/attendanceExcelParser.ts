@@ -183,7 +183,7 @@ export const parseAttendanceExcel = async (
 
         const sessionObj: AttendanceSession = {
           id: sessionId,
-          batchId: 'BAT-2026',
+          batchId: '',
           group: groupName,
           month: ym,
           date: isoDate,
@@ -233,7 +233,7 @@ export const parseAttendanceExcel = async (
             group: groupName,
             courseId: courseId,
             courseName: courseName,
-            batchId: 'BAT-2026',
+            batchId: '', // Leave empty to match any batch, or let backend assign
             batchName: 'Batch 2026',
             currentStatus: 'Active',
             isBlossomTrust: true,
@@ -293,7 +293,7 @@ export const parseAttendanceExcel = async (
           studentId,
           utNumber: normUt,
           studentName: name,
-          batchId: 'BAT-2026',
+          batchId: '',
           courseName: courseName,
           year,
           month: ym,
