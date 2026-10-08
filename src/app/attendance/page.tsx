@@ -60,12 +60,50 @@ export default function AttendancePage() {
     currentRole,
   } = useStore();
 
-  const [selectedGroup, setSelectedGroup] = useState<string>('Full Stack - Group A');
+  const [selectedGroup, setSelectedGroup] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tic360_v2_att_group') || 'Full Stack - Group A';
+    }
+    return 'Full Stack - Group A';
+  });
   const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [selectedMonthOnly, setSelectedMonthOnly] = useState<string>('04'); // Default '04' = April (Matches user's Excel)
+  const [selectedMonthOnly, setSelectedMonthOnly] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tic360_v2_att_month') || '04';
+    }
+    return '04';
+  });
   const [selectedBatch, setSelectedBatch] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSavedNotice, setIsSavedNotice] = useState(false);
+
+  // Group selection helper with auto-month alignment
+  const handleSelectGroup = (group: string) => {
+    setSelectedGroup(group);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tic360_v2_att_group', group);
+    }
+    // If selecting one of the 3 specializations (AI Agents, Flutter, Embedded)
+    // and current month is before September (09), auto-switch to September ('09')
+    // because specialization sessions began in September 2026!
+    const isSpecialization =
+      group === 'AI Agents' ||
+      group === 'Flutter Development' ||
+      group === 'Embedded Systems & Robotics';
+    if (isSpecialization && Number(selectedMonthOnly) < 9) {
+      setSelectedMonthOnly('09');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('tic360_v2_att_month', '09');
+      }
+    }
+  };
+
+  const handleSelectMonth = (month: string) => {
+    setSelectedMonthOnly(month);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tic360_v2_att_month', month);
+    }
+  };
 
   // Modals
   const [isAddSessionModalOpen, setIsAddSessionModalOpen] = useState(false);
@@ -99,10 +137,47 @@ export default function AttendancePage() {
     ];
   }, []);
 
+  // Compute month sessions first so groupStudents can verify marks
+  const monthSessions = useMemo(() => {
+    return attendanceSessions
+      .filter((ses) => {
+        const matchesMonth = ses.month === selectedMonthString;
+        const matchesBatch = selectedBatch === 'all' || ses.batchId === selectedBatch || !ses.batchId; // some old sessions might lack batchId
+        if (!matchesMonth || !matchesBatch) return false;
+        
+        let targetGroup = selectedGroup;
+        if (selectedGroup === 'Full Stack - Group A') targetGroup = 'Group A';
+        if (selectedGroup === 'Full Stack - Group B') targetGroup = 'Group B';
+        if (selectedGroup === 'Frontend Developer') targetGroup = 'Frontend Developer';
+
+        const matchesGroup =
+          selectedGroup === 'all' ||
+          ses.group === 'All' ||
+          ses.group === targetGroup ||
+          ses.group === selectedGroup ||
+          (targetGroup === 'Group A' && ses.group === ('A' as any));
+          
+        return matchesGroup;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [attendanceSessions, selectedMonthString, selectedGroup, selectedBatch]);
+
   // Filter students by selected Group and Batch
   // Dropout-month awareness: a dropout student is only shown in the month they dropped out
   // and all months BEFORE that. They are hidden from subsequent months.
   const groupStudents = useMemo(() => {
+    // Collect all session IDs for the current group/month view
+    const sessionIdsInView = new Set(monthSessions.map(s => s.id));
+    const studentIdsWithMarksInView = new Set<string>();
+    sessionIdsInView.forEach((sessionId) => {
+      const marksForSession = attendanceMarks[sessionId];
+      if (marksForSession) {
+        Object.keys(marksForSession).forEach((stuId) => {
+          studentIdsWithMarksInView.add(stuId);
+        });
+      }
+    });
+
     const seen = new Set<string>();
     const list = students.filter((s) => {
       // Hide dummy students created via Blossom Excel import from attendance view
@@ -141,6 +216,12 @@ export default function AttendancePage() {
         matchesGroup = resolved.programme === 'Embedded Systems & Robotics';
       }
 
+      // Fallback: If this student has attendance marks recorded in the current specialization sessions
+      // for this month, include them so they never disappear even if programme history resolution is pending
+      if (!matchesGroup && (studentIdsWithMarksInView.has(s.id) || studentIdsWithMarksInView.has(cleanUt))) {
+        matchesGroup = true;
+      }
+
       const matchesBatch = selectedBatch === 'all' || s.batchId === selectedBatch;
       const matchesSearch =
         s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -155,31 +236,7 @@ export default function AttendancePage() {
 
     // Stably sort trainees by UT number so table rows are consistent
     return list.sort((a, b) => a.utNumber.localeCompare(b.utNumber));
-  }, [students, dropouts, selectedGroup, selectedBatch, searchQuery, selectedMonthString]);
-
-  const monthSessions = useMemo(() => {
-    return attendanceSessions
-      .filter((ses) => {
-        const matchesMonth = ses.month === selectedMonthString;
-        const matchesBatch = selectedBatch === 'all' || ses.batchId === selectedBatch || !ses.batchId; // some old sessions might lack batchId
-        if (!matchesMonth || !matchesBatch) return false;
-        
-        let targetGroup = selectedGroup;
-        if (selectedGroup === 'Full Stack - Group A') targetGroup = 'Group A';
-        if (selectedGroup === 'Full Stack - Group B') targetGroup = 'Group B';
-        if (selectedGroup === 'Frontend Developer') targetGroup = 'Frontend Developer';
-
-        const matchesGroup =
-          selectedGroup === 'all' ||
-          ses.group === 'All' ||
-          ses.group === targetGroup ||
-          ses.group === selectedGroup ||
-          (targetGroup === 'Group A' && ses.group === ('A' as any));
-          
-        return matchesGroup;
-      })
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [attendanceSessions, selectedMonthString, selectedGroup, selectedBatch]);
+  }, [students, dropouts, selectedGroup, selectedBatch, searchQuery, selectedMonthString, programmeHistory, monthSessions, attendanceMarks]);
 
   // Handle cell click (Toggle: P -> A -> L -> P)
   const handleToggleCell = (sessionId: string, studentId: string) => {
@@ -467,7 +524,7 @@ export default function AttendancePage() {
             return (
               <button
                 key={group}
-                onClick={() => setSelectedGroup(group)}
+                onClick={() => handleSelectGroup(group)}
                 className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2.5 ${
                   selectedGroup === group
                     ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
@@ -498,7 +555,7 @@ export default function AttendancePage() {
             <Select
               label="Target Academic Month"
               value={selectedMonthOnly}
-              onChange={(e) => setSelectedMonthOnly(e.target.value)}
+              onChange={(e) => handleSelectMonth(e.target.value)}
               options={[
                 { value: '01', label: 'January' },
                 { value: '02', label: 'February' },

@@ -638,14 +638,27 @@ export const fetchAllFromSupabase = async () => {
       return acc;
     }, []),
     careerSurveyResponses: (careerSurveyResponsesRaw || []).map(fromDbCareerSurvey),
-    programmeHistory: (programmeHistoryRaw || []).map((h: any) => ({
+    programmeHistory: (
+      ((settingsData?.find((s: any) => s.key === 'programme_history')?.value as any[]) || []).map((h: any) => ({
+        id: h.id || `PROG-${h.studentId || h.student_id}-${h.groupName || h.group_name || h.programme}`,
+        studentId: h.studentId || h.student_id,
+        programme: h.programme,
+        groupName: h.groupName || h.group_name,
+        effectiveFrom: h.effectiveFrom || h.effective_from,
+        createdAt: h.createdAt || h.created_at,
+      }))
+    ).concat((programmeHistoryRaw || []).map((h: any) => ({
       id: h.id,
       studentId: h.student_id,
       programme: h.programme,
       groupName: h.group_name,
       effectiveFrom: h.effective_from,
       createdAt: h.created_at,
-    })),
+    }))).reduce((acc: any[], cur) => {
+      const exists = acc.find(p => (p.studentId === cur.studentId || (p.id && p.id === cur.id)) && p.programme === cur.programme);
+      if (!exists) acc.push(cur);
+      return acc;
+    }, []),
   };
 };
 
@@ -666,8 +679,20 @@ export const syncAllToSupabase = async (state: {
   outcomes: StudentOutcome[];
   auditLogs: AuditLog[];
   settings: SystemSettings | null;
+  programmeHistory?: any[];
 }) => {
   console.log('[supabaseSync] Background full sync...');
+
+  if (state.programmeHistory && state.programmeHistory.length > 0) {
+    try {
+      await supabase.from('system_settings').upsert({
+        key: 'programme_history',
+        value: state.programmeHistory,
+      });
+    } catch (e) {
+      console.warn('[supabaseSync] Failed to sync programme_history to system_settings:', e);
+    }
+  }
 
   // Courses & batches first (FK dependencies)
   await Promise.all([

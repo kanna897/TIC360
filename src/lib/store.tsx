@@ -236,6 +236,7 @@ const STORAGE_KEYS = {
   ORG_PROFILE: 'tic360_v2_org_profile',
   ABSENCES: 'tic360_v2_absences',
   CAREER_SURVEYS: 'tic360_v2_career_surveys',
+  PROGRAMME_HISTORY: 'tic360_v2_programme_history',
   ROLE: 'tic360_v2_current_role',
   THEME: 'tic360_v2_theme',
   AUTH_USER: 'tic360_v2_auth_user',
@@ -319,6 +320,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           if (sAbs) setAbsenceRequests(JSON.parse(sAbs));
           const sSurveys = localStorage.getItem(STORAGE_KEYS.CAREER_SURVEYS);
           if (sSurveys) setCareerSurveyResponses(JSON.parse(sSurveys));
+          const sProg = localStorage.getItem(STORAGE_KEYS.PROGRAMME_HISTORY);
+          if (sProg) setProgrammeHistory(JSON.parse(sProg));
           const sAudit = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
           if (sAudit) setAuditLogs(JSON.parse(sAudit));
           const sOrg = localStorage.getItem(STORAGE_KEYS.ORG_PROFILE);
@@ -363,7 +366,58 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         if (data.outcomes?.length) setOutcomes(data.outcomes);
         if (data.absenceRequests?.length) setAbsenceRequests(data.absenceRequests);
         if (data.careerSurveyResponses?.length) setCareerSurveyResponses(data.careerSurveyResponses);
-        if (data.programmeHistory?.length) setProgrammeHistory(data.programmeHistory);
+        
+        // Load programmeHistory with multi-layer fallback
+        let loadedProgHistory: ProgrammeHistory[] = [];
+        if (data.programmeHistory?.length) {
+          loadedProgHistory = data.programmeHistory;
+        }
+
+        if (!loadedProgHistory.length) {
+          const sProg = localStorage.getItem(STORAGE_KEYS.PROGRAMME_HISTORY);
+          if (sProg) {
+            try {
+              loadedProgHistory = JSON.parse(sProg);
+            } catch (err) {
+              console.warn('[store] Failed to parse programmeHistory from localStorage:', err);
+            }
+          }
+        }
+
+        // Auto-reconstruct from attendanceSessions and attendanceMarks if still empty
+        if (!loadedProgHistory.length && data.attendanceSessions?.length && data.attendanceMarks) {
+          const specSessions = data.attendanceSessions.filter((s: AttendanceSession) =>
+            ['AI Agents', 'Flutter Development', 'Embedded Systems & Robotics'].includes(s.group)
+          );
+          if (specSessions.length > 0) {
+            const autoHistories: ProgrammeHistory[] = [];
+            const seen = new Set<string>();
+            specSessions.forEach((ses: AttendanceSession) => {
+              const marks = data.attendanceMarks[ses.id] || {};
+              Object.keys(marks).forEach((stuKey) => {
+                const k = `${stuKey}_${ses.group}`;
+                if (!seen.has(k)) {
+                  seen.add(k);
+                  autoHistories.push({
+                    id: `AUTO-${stuKey}-${ses.group.replace(/\s+/g, '_')}`,
+                    studentId: stuKey,
+                    programme: ses.group,
+                    groupName: ses.group,
+                    effectiveFrom: '2026-09-01',
+                  });
+                }
+              });
+            });
+            if (autoHistories.length > 0) {
+              loadedProgHistory = autoHistories;
+              try {
+                localStorage.setItem(STORAGE_KEYS.PROGRAMME_HISTORY, JSON.stringify(autoHistories));
+              } catch (e) {}
+            }
+          }
+        }
+
+        if (loadedProgHistory.length) setProgrammeHistory(loadedProgHistory);
         if (data.auditLogs?.length) setAuditLogs(data.auditLogs);
         if (data.settings) setSettings(data.settings);
       } catch (e) {
@@ -474,6 +528,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(auditLogs));
       localStorage.setItem(STORAGE_KEYS.ORG_PROFILE, JSON.stringify(orgProfile));
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+      localStorage.setItem(STORAGE_KEYS.PROGRAMME_HISTORY, JSON.stringify(programmeHistory));
     } catch (e) {
       console.warn('localStorage backup error:', e);
     }
@@ -495,6 +550,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           outcomes,
           auditLogs,
           settings,
+          programmeHistory,
         });
       }, 2000);
       return () => clearTimeout(timer);
@@ -515,6 +571,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     outcomes,
     absenceRequests,
     careerSurveyResponses,
+    programmeHistory,
     auditLogs,
     orgProfile,
     settings,
@@ -1598,6 +1655,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
     // Step 5: Merge Programme Histories (e.g. Specializations AI Agents, Flutter, Embedded starting Sept)
     if (newProgrammeHistories && newProgrammeHistories.length > 0) {
+      let finalMergedHistories: ProgrammeHistory[] = [];
       setProgrammeHistory((prev) => {
         const historyMap = new Map<string, ProgrammeHistory>();
         prev.forEach((h) => historyMap.set(h.id, h));
@@ -1608,10 +1666,23 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           const remappedH: ProgrammeHistory = { ...h, studentId: realId };
           historyMap.set(remappedH.id, remappedH);
         });
-        return Array.from(historyMap.values());
+        finalMergedHistories = Array.from(historyMap.values());
+        try {
+          localStorage.setItem(STORAGE_KEYS.PROGRAMME_HISTORY, JSON.stringify(finalMergedHistories));
+        } catch (e) {
+          console.warn('Failed to save programmeHistory to localStorage:', e);
+        }
+        return finalMergedHistories;
       });
 
       if (checkIsSupabaseConfigured()) {
+        import('./supabaseClient').then(({ supabase }) => {
+          supabase.from('system_settings').upsert({
+            key: 'programme_history',
+            value: finalMergedHistories.length > 0 ? finalMergedHistories : newProgrammeHistories,
+          }).then(() => console.log('[store] programme_history synced to system_settings'));
+        }).catch(console.error);
+
         import('./supabaseSync').then(({ syncProgrammeHistory }) => {
           newProgrammeHistories.forEach((h) => {
             const normStuUt = (h.studentId || '').toUpperCase();

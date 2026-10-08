@@ -313,10 +313,22 @@ export function getStudentProgrammeAtDate(
   date: string
 ): { programme: string; group: string | null } {
   const cleanUt = (student.utNumber || '').trim().toUpperCase();
+  const utDigits = cleanUt.replace(/\D/g, '');
 
   // Filter history for this student and sort ascending by effectiveFrom date
   const studentHistory = (history || [])
-    .filter(h => h.studentId === student.id || (cleanUt && (h.studentId === cleanUt || h.studentId === `STU-${cleanUt}`)))
+    .filter(h => {
+      if (h.studentId === student.id) return true;
+      if (!cleanUt) return false;
+      const hStu = (h.studentId || '').toUpperCase();
+      const hId = (h.id || '').toUpperCase();
+      return (
+        hStu === cleanUt ||
+        hStu === `STU-${cleanUt}` ||
+        hId.includes(cleanUt) ||
+        (utDigits.length >= 4 && (hStu.includes(utDigits) || hId.includes(utDigits)))
+      );
+    })
     .sort((a, b) => new Date(a.effectiveFrom).getTime() - new Date(b.effectiveFrom).getTime());
 
   let applicableRecord = null;
