@@ -130,6 +130,30 @@ export const parseAttendanceExcel = async (
     });
   }
 
+  // Pre-scan workbook to check if this workbook is Frontend Developer (React)
+  let hasAnyGroupBInWorkbook = false;
+  let hasAnyReactKeywordsInWorkbook = false;
+  for (const name of workbook.SheetNames) {
+    const s = workbook.Sheets[name];
+    if (!s) continue;
+    const rws = XLSX.utils.sheet_to_json<any[]>(s, { header: 1 });
+    rws.forEach((r) => {
+      if (!r) return;
+      r.forEach((cell) => {
+        if (typeof cell === 'string') {
+          const u = cell.toUpperCase();
+          if (u.includes('GROUP "B"') || u.includes('GROUP B') || u.includes("GROUP 'B'") || u.includes('GROUP “B”')) {
+            hasAnyGroupBInWorkbook = true;
+          }
+          if (u.includes('REACT') || u.includes('FRONTEND')) {
+            hasAnyReactKeywordsInWorkbook = true;
+          }
+        }
+      });
+    });
+  }
+  const isWorkbookFrontendReact = hasAnyReactKeywordsInWorkbook && !hasAnyGroupBInWorkbook;
+
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) continue;
@@ -146,6 +170,30 @@ export const parseAttendanceExcel = async (
       }
     }
     const year = parseInt(ym.split('-')[0], 10) || 2026;
+
+    // Check if this particular sheet has React subjects or lacks Group B
+    let sheetHasGroupB = false;
+    let sheetHasGroupA = false;
+    let sheetHasReact = false;
+    rows.forEach((r) => {
+      if (!r) return;
+      r.forEach((cell) => {
+        if (typeof cell === 'string') {
+          const u = cell.toUpperCase();
+          if (u.includes('GROUP "B"') || u.includes('GROUP B') || u.includes("GROUP 'B'") || u.includes('GROUP “B”')) {
+            sheetHasGroupB = true;
+          }
+          if (u.includes('GROUP "A"') || u.includes('GROUP A') || u.includes("GROUP 'A'") || u.includes('GROUP “A”')) {
+            sheetHasGroupA = true;
+          }
+          if (u.includes('REACT') || u.includes('FRONTEND')) {
+            sheetHasReact = true;
+          }
+        }
+      });
+    });
+
+    const isThisSheetFrontend = isWorkbookFrontendReact || (sheetHasReact && !sheetHasGroupB && !sheetHasGroupA);
 
     // Detect all sections in this sheet
     interface DetectedSection {
@@ -182,6 +230,15 @@ export const parseAttendanceExcel = async (
           groupName = 'Group B';
           groupSlug = 'GB';
           hasGroupSections = true;
+        } else if (
+          upper.includes('GROUP "A"') ||
+          upper.includes('GROUP A') ||
+          upper.includes("GROUP 'A'") ||
+          upper.includes('GROUP “A”')
+        ) {
+          groupName = 'Group A';
+          groupSlug = 'GA';
+          hasGroupSections = true;
         } else if (upper.includes('AI AGENTS') || upper.includes('AI AGENT')) {
           groupName = 'AI Agents';
           groupSlug = 'AI_Agents';
@@ -200,8 +257,14 @@ export const parseAttendanceExcel = async (
           courseName = 'Embedded Systems & Robotics';
           courseId = 'Embedded Systems & Robotics';
           hasSpecializationSections = true;
+        } else if (isThisSheetFrontend) {
+          groupName = 'Frontend Developer';
+          groupSlug = 'FE';
+          courseName = 'Frontend Developer';
+          courseId = 'Frontend Developer';
+          hasFrontendTable = true;
         } else {
-          // Defaults to Group A
+          // Defaults to Group A for Full Stack
           hasGroupSections = true;
         }
 
@@ -226,15 +289,27 @@ export const parseAttendanceExcel = async (
       });
 
       if (feHeader !== -1) {
-        hasFrontendTable = true;
-        sections.push({
-          startRow: feHeader,
-          title: 'Frontend Developer Attendance',
-          groupName: 'Frontend Developer',
-          groupSlug: 'FE',
-          courseName: 'Frontend Developer',
-          courseId: 'Frontend Developer',
-        });
+        if (isThisSheetFrontend) {
+          hasFrontendTable = true;
+          sections.push({
+            startRow: feHeader,
+            title: 'Frontend Developer Attendance',
+            groupName: 'Frontend Developer',
+            groupSlug: 'FE',
+            courseName: 'Frontend Developer',
+            courseId: 'Frontend Developer',
+          });
+        } else {
+          hasGroupSections = true;
+          sections.push({
+            startRow: feHeader,
+            title: 'Group A Attendance',
+            groupName: 'Group A',
+            groupSlug: 'GA',
+            courseName: 'Full Stack Developer',
+            courseId: 'CRS-TIC-01',
+          });
+        }
       }
     }
 
@@ -330,32 +405,35 @@ export const parseAttendanceExcel = async (
         const name = String(row[2] || row[1] || utNo).trim();
         const studentId = `STU-${utNo}`;
 
+        const isFrontendSection = sec.groupName === 'Frontend Developer';
+
         // Register or update student
-        if (!studentsMap.has(utNo)) {
+        if (!studentsMap.has(utNo) || isFrontendSection) {
+          const existingStu = studentsMap.get(utNo);
           studentsMap.set(utNo, {
-            id: studentId,
+            id: existingStu?.id || studentId,
             utNumber: utNo,
-            fullName: name,
-            group: sec.groupName === 'Group B' ? 'Group B' : 'Group A',
-            courseId: 'CRS-TIC-01',
-            courseName: 'Full Stack Developer',
+            fullName: existingStu?.fullName || name,
+            group: isFrontendSection ? 'Frontend Developer' : (sec.groupName === 'Group B' ? 'Group B' : 'Group A'),
+            courseId: isFrontendSection ? 'Frontend Developer' : (existingStu?.courseId || 'CRS-TIC-01'),
+            courseName: isFrontendSection ? 'Frontend Developer' : (existingStu?.courseName || 'Full Stack Developer'),
             batchId: 'BAT-2026',
             batchName: 'Batch 2026',
-            currentStatus: 'Active',
-            isBlossomTrust: true,
-            email: `${utNo.toLowerCase()}@unicomtic.lk`,
-            phone: 'N/A',
-            address: 'Jaffna, Sri Lanka',
-            district: 'Jaffna',
-            gender: 'Other',
-            dob: '2004-01-01',
-            nic: 'N/A',
-            emergencyContact: {
+            currentStatus: existingStu?.currentStatus || 'Active',
+            isBlossomTrust: existingStu?.isBlossomTrust ?? true,
+            email: existingStu?.email || `${utNo.toLowerCase()}@unicomtic.lk`,
+            phone: existingStu?.phone || 'N/A',
+            address: existingStu?.address || 'Jaffna, Sri Lanka',
+            district: existingStu?.district || 'Jaffna',
+            gender: existingStu?.gender || 'Other',
+            dob: existingStu?.dob || '2004-01-01',
+            nic: existingStu?.nic || 'N/A',
+            emergencyContact: existingStu?.emergencyContact || {
               name: 'Parent / Guardian',
               phone: 'N/A',
               relationship: 'Parent',
             },
-            createdAt: '2026-04-01',
+            createdAt: existingStu?.createdAt || '2026-04-01',
             updatedAt: new Date().toISOString().slice(0, 10),
           });
         }
@@ -374,6 +452,17 @@ export const parseAttendanceExcel = async (
               programme: sec.courseName,
               groupName: sec.groupName,
               effectiveFrom: '2026-09-01',
+            });
+          }
+        } else if (sec.groupName === 'Frontend Developer') {
+          const progId = `PROG-${utNo}-Frontend`;
+          if (!progHistoriesMap.has(progId)) {
+            progHistoriesMap.set(progId, {
+              id: progId,
+              studentId: studentId,
+              programme: 'Frontend Developer',
+              groupName: 'Frontend Developer',
+              effectiveFrom: '2026-05-01',
             });
           }
         }

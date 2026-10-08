@@ -174,17 +174,17 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Semester Attendance Bulk Upload (2026)"
-      subtitle="[TEMPORARY UPLOADER] Imports Full Stack (Group A & B), AI Agents, Flutter, and Embedded Systems without disturbing Frontend attendance."
+      title="Attendance Excel Bulk Upload (2026)"
+      subtitle="Imports Full Stack Developer (Group A & B), Frontend Developer (React), and Specializations (AI Agents, Flutter, Embedded) directly into the attendance matrix."
       maxWidth="4xl"
     >
       <div className="space-y-6">
-        {/* Temporary Notice Header Banner */}
-        <div className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+        {/* Header Banner */}
+        <div className="flex items-center justify-between p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs">
           <div className="flex items-center gap-2">
-            <Badge variant="amber">TEMPORARY UPLOADER</Badge>
+            <Badge variant="blue">EXCEL UPLOADER</Badge>
             <span>
-              Configured specifically for <strong>Students Attendance Record - 2026 (6).xlsx</strong>. You can upload via 1-click or choose file below.
+              Supports both <strong>Full Stack Developer (Group A & B + Specializations)</strong> and <strong>Frontend Developer (React)</strong> attendance sheets.
             </span>
           </div>
         </div>
@@ -214,7 +214,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                 {isParsing ? 'Analyzing Excel Sheets...' : 'Select or Drag & Drop Attendance Excel File'}
               </h3>
               <p className="text-xs text-slate-400 max-w-lg mx-auto mb-4">
-                Supports <strong className="text-emerald-300 font-mono">Students Attendance Record - 2026 (6).xlsx</strong> (April–October, Group A & B + AI Agents + Flutter + Embedded) and <strong className="text-blue-300 font-mono">React - Students Attendance.xlsx</strong>.
+                Supports <strong className="text-emerald-300 font-mono">Students Attendance Record - 2026 (6).xlsx</strong> (April–October) and <strong className="text-cyan-300 font-mono">React - Students Attendance.xlsx</strong> (May–September).
               </p>
 
               <div className="flex flex-wrap items-center justify-center gap-3">
@@ -230,17 +230,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                   leftIcon={<Zap className="w-4 h-4 text-emerald-200" />}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-md shadow-emerald-950/40"
                 >
-                  ⚡ 1-Click Auto-Load 2026 Record File
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={isParsing}
-                  leftIcon={<UploadCloud className="w-4 h-4 text-emerald-400" />}
-                >
-                  {isParsing ? 'Reading Excel File...' : 'Choose File from Computer'}
+                  ⚡ 1-Click Load Full Stack Record (2026)
                 </Button>
 
                 <Button
@@ -253,9 +243,19 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                     handleLoadBundledReactFile();
                   }}
                   leftIcon={<Zap className="w-4 h-4 text-cyan-400" />}
-                  className="border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+                  className="border-cyan-500/60 text-cyan-300 hover:bg-cyan-500/10 font-bold bg-cyan-950/30"
                 >
-                  ⚛️ Quick-Load Frontend (React) File
+                  ⚛️ 1-Click Load Frontend (React) Record
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={isParsing}
+                  leftIcon={<UploadCloud className="w-4 h-4 text-emerald-400" />}
+                >
+                  {isParsing ? 'Reading Excel File...' : 'Choose File from Computer'}
                 </Button>
               </div>
             </div>
@@ -335,7 +335,9 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                   {parsedData.summary.totalStudents} <span className="text-xs font-normal text-slate-400">trainees</span>
                 </div>
                 <div className="text-[10px] text-emerald-400 mt-1 truncate">
-                  GA: {parsedData.summary.groupACount} | GB: {parsedData.summary.groupBCount}
+                  {parsedData.summary.frontendCount > 0 && `Frontend: ${parsedData.summary.frontendCount}`}
+                  {parsedData.summary.groupACount > 0 && ` | GA: ${parsedData.summary.groupACount}`}
+                  {parsedData.summary.groupBCount > 0 && ` | GB: ${parsedData.summary.groupBCount}`}
                   {parsedData.summary.aiAgentsCount > 0 && ` | AI: ${parsedData.summary.aiAgentsCount}`}
                   {parsedData.summary.flutterCount > 0 && ` | FL: ${parsedData.summary.flutterCount}`}
                   {parsedData.summary.embeddedCount > 0 && ` | EM: ${parsedData.summary.embeddedCount}`}
@@ -369,8 +371,18 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
               </div>
             </div>
 
+            {/* Frontend Developer Alert */}
+            {isFrontendOnly && (
+              <div className="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-200 text-xs flex items-center justify-between">
+                <span>
+                  ⚛️ <strong>Frontend Developer (React) Attendance:</strong> Detected <strong>{parsedData.summary.totalStudents} trainees</strong> and <strong>{parsedData.summary.totalSessions} sessions</strong> across {parsedData.summary.totalSheets} months (May–September). Will seamlessly sync to the Frontend Developer group tab without disturbing Full Stack records.
+                </span>
+                <Badge variant="blue">Frontend</Badge>
+              </div>
+            )}
+
             {/* Specialization Breakdown Alert */}
-            {parsedData.programmeHistories.length > 0 && (
+            {parsedData.programmeHistories.length > 0 && !isFrontendOnly && (
               <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 text-xs flex items-center justify-between">
                 <span>
                   🎯 <strong>Specialization Tracking Activated:</strong> Students in <strong>AI Agents ({parsedData.summary.aiAgentsCount})</strong>, <strong>Flutter Development ({parsedData.summary.flutterCount})</strong>, and <strong>Embedded Systems & Robotics ({parsedData.summary.embeddedCount})</strong> will automatically transition in September & October while staying in Full Stack for April–August.
@@ -428,8 +440,8 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                           </Badge>
                         )}
                         {m.frontendSessions > 0 && (
-                          <Badge variant="emerald">
-                            Frontend: {m.frontendSessions} ses
+                          <Badge variant="blue">
+                            Frontend: {m.frontendSessions} ses ({m.frontendStudents} st)
                           </Badge>
                         )}
                       </div>

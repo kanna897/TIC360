@@ -399,7 +399,7 @@ export default function AttendancePage() {
             leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-100" />}
             className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold shadow-lg shadow-emerald-950/40 border border-emerald-400/50"
           >
-            ⚡ Temp Attendance Uploader (2026 Excel)
+            ⚡ Attendance Excel Uploader (Full Stack & Frontend)
           </Button>
 
           <Link href="/absentees-form">
