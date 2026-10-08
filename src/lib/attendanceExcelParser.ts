@@ -106,7 +106,20 @@ export const parseAttendanceExcel = async (
   existingStudents?: Student[],
   programmeHistory?: ProgrammeHistory[]
 ): Promise<ParsedAttendanceData> => {
-  const workbook = XLSX.read(fileData, { type: 'array' });
+  const workbook = XLSX.read(fileData, { type: 'array', cellStyles: true });
+
+  const isCellRed = (cellObj: any): boolean => {
+    if (!cellObj || !cellObj.s) return false;
+    const fg = cellObj.s.fgColor?.rgb;
+    const bg = cellObj.s.bgColor?.rgb;
+    if (fg && (fg === 'FF0000' || fg === 'FFFF0000' || String(fg).toUpperCase().startsWith('FF0000'))) {
+      return true;
+    }
+    if (cellObj.s.patternType === 'solid' && bg && (bg === 'FF0000' || bg === 'FFFF0000' || String(bg).toUpperCase().startsWith('FF0000'))) {
+      return true;
+    }
+    return false;
+  };
 
   const allSessions: AttendanceSession[] = [];
   const allMarks: Record<string, Record<string, AttendanceMark>> = {};
@@ -472,9 +485,15 @@ export const parseAttendanceExcel = async (
         let absentCount = 0;
 
         sessionCols.forEach(({ col, session }) => {
+          const cellObj = sheet[XLSX.utils.encode_cell({ r, c: col })];
           const rawMark = (row[col] || '').toString().trim().toUpperCase();
+          const cellIsRed = isCellRed(cellObj);
+
           let mark: AttendanceMark = 'A';
-          if (rawMark === 'P' || rawMark === 'PRESENT') {
+          if (cellIsRed) {
+            mark = 'A';
+            absentCount++;
+          } else if (rawMark === 'P' || rawMark === 'PRESENT') {
             mark = 'P';
             presentCount++;
           } else if (rawMark === 'L' || rawMark === 'LATE') {

@@ -96,9 +96,24 @@ async function uploadToSupabase() {
   }
 
   // 3. Read Excel file
-  const excelPath = fs.existsSync('react.xlsx') ? 'react.xlsx' : 'C:\\Users\\unico.UNICOMTIC85\\Downloads\\React - Students Attenhttps___accounts.google.com_SignOutOptions_hl=en-GB&continue=https___docs.google.com_spreadsheets_d_1r_W9WSJiV16fiYr4CoL3cMs_pP2MUmHdIC0qGyoXRSo_edit%3Fusp%3Ddrive_web%26ouid%3D11.xlsx';
+  const excelPath = fs.existsSync('public/react_attendance.xlsx')
+    ? 'public/react_attendance.xlsx'
+    : (fs.existsSync('react.xlsx') ? 'react.xlsx' : 'C:\\Users\\unico.UNICOMTIC85\\Downloads\\React - Students Attenhttps___accounts.google.com_SignOutOptions_hl=en-GB&continue=https___docs.google.com_spreadsheets_d_1r_W9WSJiV16fiYr4CoL3cMs_pP2MUmHdIC0qGyoXRSo_edit%3Fusp%3Ddrive_web%26ouid% (1).xlsx');
   console.log(`3. Reading Excel from: ${excelPath}`);
-  const wb = xlsx.readFile(excelPath);
+  const wb = xlsx.readFile(excelPath, { cellStyles: true });
+
+  const isCellRed = (cellObj) => {
+    if (!cellObj || !cellObj.s) return false;
+    const fg = cellObj.s.fgColor?.rgb;
+    const bg = cellObj.s.bgColor?.rgb;
+    if (fg && (fg === 'FF0000' || fg === 'FFFF0000' || String(fg).toUpperCase().startsWith('FF0000'))) {
+      return true;
+    }
+    if (cellObj.s.patternType === 'solid' && bg && (bg === 'FF0000' || bg === 'FFFF0000' || String(bg).toUpperCase().startsWith('FF0000'))) {
+      return true;
+    }
+    return false;
+  };
 
   const allSessions = [];
   const allMarks = [];
@@ -209,9 +224,15 @@ async function uploadToSupabase() {
       let absentCount = 0;
 
       sessionCols.forEach(({ col, session }) => {
+        const cellObj = sheet[xlsx.utils.encode_cell({ r, c: col })];
         const rawMark = (row[col] || '').toString().trim().toUpperCase();
+        const cellIsRed = isCellRed(cellObj);
+
         let mark = 'A';
-        if (rawMark === 'P' || rawMark === 'PRESENT') {
+        if (cellIsRed) {
+          mark = 'A';
+          absentCount++;
+        } else if (rawMark === 'P' || rawMark === 'PRESENT') {
           mark = 'P';
           presentCount++;
         } else if (rawMark === 'L' || rawMark === 'LATE') {
