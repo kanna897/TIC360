@@ -161,7 +161,8 @@ interface StoreContextType {
     sessions: AttendanceSession[],
     marks: Record<string, Record<string, AttendanceMark>>,
     monthly: MonthlyAttendance[],
-    newStudents?: Student[]
+    newStudents?: Student[],
+    newProgrammeHistories?: ProgrammeHistory[]
   ) => void;
   importGoogleSheetAttendance: (
     month: string,
@@ -1502,7 +1503,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     sessions: AttendanceSession[],
     marks: Record<string, Record<string, AttendanceMark>>,
     monthly: MonthlyAttendance[],
-    newStudents?: Student[]
+    newStudents?: Student[],
+    newProgrammeHistories?: ProgrammeHistory[]
   ) => {
     // Step 1: Build a UT→realID map by merging new students into existing ones
     // We need the final student list first so we can remap marks correctly.
@@ -1525,11 +1527,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           utToIdMap.set(normUt, s.id);
         } else {
           const existing = existingMap.get(normUt)!;
+          // Protect Frontend Developer assignment if previously assigned
+          const isFrontend = existing.courseId === 'Frontend Developer' || existing.group === 'Frontend Developer';
           existingMap.set(normUt, {
             ...existing,
-            group: s.group || existing.group,
-            courseId: s.courseId || existing.courseId,
-            courseName: s.courseName || existing.courseName,
+            group: isFrontend ? existing.group : (s.group || existing.group),
+            courseId: isFrontend ? existing.courseId : (s.courseId || existing.courseId),
+            courseName: isFrontend ? existing.courseName : (s.courseName || existing.courseName),
           });
           utToIdMap.set(normUt, existing.id);
         }
@@ -1574,9 +1578,10 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     });
 
     // Step 4: Apply to state with smart merging
-    const importedGroups = new Set(sessions.map((s) => s.group));
+    // Replace matching (group, month) sessions and marks; preserve other groups (e.g. Frontend Developer)
+    const importedGroupMonths = new Set(sessions.map((s) => `${s.group}_${s.month}`));
     setAttendanceSessions((prev) => {
-      const retained = prev.filter((s) => !importedGroups.has(s.group));
+      const retained = prev.filter((s) => !importedGroupMonths.has(`${s.group}_${s.month}`));
       return [...retained, ...sessions];
     });
 
@@ -1591,7 +1596,34 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       return [...retained, ...remappedMonthly];
     });
 
-    // Step 5: Sync to Supabase
+    // Step 5: Merge Programme Histories (e.g. Specializations AI Agents, Flutter, Embedded starting Sept)
+    if (newProgrammeHistories && newProgrammeHistories.length > 0) {
+      setProgrammeHistory((prev) => {
+        const historyMap = new Map<string, ProgrammeHistory>();
+        prev.forEach((h) => historyMap.set(h.id, h));
+        newProgrammeHistories.forEach((h) => {
+          const normStuUt = (h.studentId || '').toUpperCase();
+          const cleanUt = normStuUt.startsWith('STU-') ? normStuUt.substring(4) : normStuUt;
+          const realId = utToIdMap.get(cleanUt) || h.studentId;
+          const remappedH: ProgrammeHistory = { ...h, studentId: realId };
+          historyMap.set(remappedH.id, remappedH);
+        });
+        return Array.from(historyMap.values());
+      });
+
+      if (checkIsSupabaseConfigured()) {
+        import('./supabaseSync').then(({ syncProgrammeHistory }) => {
+          newProgrammeHistories.forEach((h) => {
+            const normStuUt = (h.studentId || '').toUpperCase();
+            const cleanUt = normStuUt.startsWith('STU-') ? normStuUt.substring(4) : normStuUt;
+            const realId = utToIdMap.get(cleanUt) || h.studentId;
+            syncProgrammeHistory(realId, h.programme, h.groupName, h.effectiveFrom);
+          });
+        }).catch(console.error);
+      }
+    }
+
+    // Step 6: Sync to Supabase
     if (checkIsSupabaseConfigured()) {
       import('./supabaseSync').then(({ safeUpsert, syncStudent, syncAttendanceSessions, syncMonthlyAttendance }) => {
         // Ensure students exist first to prevent foreign key constraint failures

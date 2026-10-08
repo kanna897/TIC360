@@ -12,3 +12,4 @@ const AutoImportClient = dynamic(
 export function AutoImportWrapper() {
   return <AutoImportClient />;
 }
+

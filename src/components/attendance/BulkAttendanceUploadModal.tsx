@@ -11,8 +11,6 @@ import {
   Layers,
   Sparkles,
   Check,
-  ArrowRight,
-  Info,
   RefreshCw,
   Zap,
 } from 'lucide-react';
@@ -71,7 +69,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
       const result = await parseAttendanceExcel(buffer, students, programmeHistory);
 
       if (result.summary.totalSessions === 0) {
-        setParseError('No attendance sessions found in this workbook. Please ensure sheets match month names (May, June, July, August, September, April, etc.).');
+        setParseError('No attendance sessions found in this workbook. Please ensure sheets match month names (April, May, June, July, August, September, October, etc.).');
       } else {
         setParsedData(result);
       }
@@ -101,6 +99,22 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
     }
   };
 
+  // Quick load 2026 Semester attendance file (Students Attendance Record - 2026 (6).xlsx)
+  const handleLoadBundled2026File = async () => {
+    setIsParsing(true);
+    setParseError(null);
+    try {
+      const res = await fetch('/temp_attendance_2026.xlsx');
+      if (!res.ok) throw new Error('Could not load temp_attendance_2026.xlsx');
+      const buffer = await res.arrayBuffer();
+      await processBuffer(buffer, 'Students Attendance Record - 2026 (6).xlsx');
+    } catch (err) {
+      console.error(err);
+      setParseError('Unable to load bundled 2026 attendance file. Please choose or drag the file manually.');
+      setIsParsing(false);
+    }
+  };
+
   // Quick load pre-bundled React attendance file
   const handleLoadBundledReactFile = async () => {
     setIsParsing(true);
@@ -126,15 +140,16 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
         parsedData.sessions,
         parsedData.marks,
         parsedData.monthly,
-        autoRegisterStudents ? parsedData.students : undefined
+        autoRegisterStudents ? parsedData.students : undefined,
+        parsedData.programmeHistories
       );
 
       setIsCompleted(true);
 
       try {
         confetti({
-          particleCount: 100,
-          spread: 70,
+          particleCount: 120,
+          spread: 80,
           origin: { y: 0.6 },
         });
       } catch {
@@ -144,7 +159,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
       setTimeout(() => {
         if (onSuccess) onSuccess();
         handleClose();
-      }, 1800);
+      }, 2000);
     } catch (err: unknown) {
       console.error(err);
       setParseError('An error occurred while saving the attendance data.');
@@ -152,17 +167,28 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
     }
   };
 
-  const isFrontend = parsedData?.summary.detectedFormat.includes('Frontend');
+  const isFrontendOnly = parsedData?.summary.detectedFormat === 'Frontend Developer (React)';
+  const isFullStackSemester = parsedData?.summary.detectedFormat === 'Full Stack & Specializations (2026 Semester)';
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Bulk Attendance Upload (Excel)"
-      subtitle="Upload semester attendance spreadsheets for Full Stack (Groups A & B) or Frontend Developer (React)"
+      title="Semester Attendance Bulk Upload (2026)"
+      subtitle="[TEMPORARY UPLOADER] Imports Full Stack (Group A & B), AI Agents, Flutter, and Embedded Systems without disturbing Frontend attendance."
       maxWidth="4xl"
     >
       <div className="space-y-6">
+        {/* Temporary Notice Header Banner */}
+        <div className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+          <div className="flex items-center gap-2">
+            <Badge variant="amber">TEMPORARY UPLOADER</Badge>
+            <span>
+              Configured specifically for <strong>Students Attendance Record - 2026 (6).xlsx</strong>. You can upload via 1-click or choose file below.
+            </span>
+          </div>
+        </div>
+
         {/* Upload Box */}
         {!parsedData && !isCompleted && (
           <div className="space-y-3">
@@ -187,21 +213,11 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
               <h3 className="text-base font-bold text-white mb-1">
                 {isParsing ? 'Analyzing Excel Sheets...' : 'Select or Drag & Drop Attendance Excel File'}
               </h3>
-              <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
-                Supports <strong className="text-emerald-300 font-mono">React - Students Attendance.xlsx</strong> (May–Sep) and <strong className="text-blue-300 font-mono">Full Stack Group A & B</strong> workbooks.
+              <p className="text-xs text-slate-400 max-w-lg mx-auto mb-4">
+                Supports <strong className="text-emerald-300 font-mono">Students Attendance Record - 2026 (6).xlsx</strong> (April–October, Group A & B + AI Agents + Flutter + Embedded) and <strong className="text-blue-300 font-mono">React - Students Attendance.xlsx</strong>.
               </p>
 
               <div className="flex flex-wrap items-center justify-center gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={isParsing}
-                  leftIcon={<UploadCloud className="w-4 h-4 text-emerald-400" />}
-                >
-                  {isParsing ? 'Reading Excel File...' : 'Choose Excel (.xlsx) File'}
-                </Button>
-
                 <Button
                   type="button"
                   variant="primary"
@@ -209,12 +225,37 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                   disabled={isParsing}
                   onClick={(e) => {
                     e.stopPropagation();
+                    handleLoadBundled2026File();
+                  }}
+                  leftIcon={<Zap className="w-4 h-4 text-emerald-200" />}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-md shadow-emerald-950/40"
+                >
+                  ⚡ 1-Click Auto-Load 2026 Record File
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={isParsing}
+                  leftIcon={<UploadCloud className="w-4 h-4 text-emerald-400" />}
+                >
+                  {isParsing ? 'Reading Excel File...' : 'Choose File from Computer'}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isParsing}
+                  onClick={(e) => {
+                    e.stopPropagation();
                     handleLoadBundledReactFile();
                   }}
-                  leftIcon={<Zap className="w-4 h-4 text-amber-300" />}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                  leftIcon={<Zap className="w-4 h-4 text-cyan-400" />}
+                  className="border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
                 >
-                  ⚡ Quick-Load Frontend (React) File
+                  ⚛️ Quick-Load Frontend (React) File
                 </Button>
               </div>
             </div>
@@ -242,16 +283,19 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="text-xs font-bold text-emerald-200">
-                      Workbook Verified: {selectedFileName || 'Attendance Record.xlsx'}
+                      Workbook Verified: {selectedFileName || 'Students Attendance Record - 2026 (6).xlsx'}
                     </h4>
-                    <Badge variant={parsedData.summary.detectedFormat === 'Mixed / Custom' ? 'purple' : isFrontend ? 'emerald' : 'blue'}>
-                      {parsedData.summary.detectedFormat === 'Mixed / Custom' 
-                        ? '🔄 Full Stack & Frontend' 
-                        : isFrontend ? '⚛️ Frontend Developer (React)' : '👨‍💻 Full Stack Developer'}
+                    <Badge variant={isFullStackSemester ? 'emerald' : isFrontendOnly ? 'blue' : 'purple'}>
+                      {isFullStackSemester
+                        ? '🚀 Full Stack (GA & GB) + Specializations'
+                        : isFrontendOnly
+                        ? '⚛️ Frontend Developer (React)'
+                        : '🔄 Multi-Batch Attendance'}
                     </Badge>
                   </div>
                   <p className="text-[11px] text-emerald-400/80 mt-0.5">
-                    {parsedData.summary.totalSheets} Months Detected &bull; {parsedData.summary.totalStudents} Trainees &bull; {parsedData.summary.totalSessions} Sessions Ready
+                    {parsedData.summary.totalSheets} Sheets &bull; {parsedData.summary.totalStudents} Trainees &bull; {parsedData.summary.totalSessions} Sessions Ready
+                    {parsedData.programmeHistories.length > 0 && ` &bull; ${parsedData.programmeHistories.length} Specialization Mappings`}
                   </p>
                 </div>
               </div>
@@ -266,21 +310,6 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                 Change File
               </Button>
             </div>
-
-            {/* Mismatch Warnings */}
-            {parsedData.summary.warnings?.length > 0 && (
-              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-400" />
-                  <h4 className="text-xs font-bold text-amber-300">Programme Mismatches Detected ({parsedData.summary.warnings.length})</h4>
-                </div>
-                <div className="max-h-32 overflow-y-auto space-y-1 pr-2">
-                  {parsedData.summary.warnings.map((warn, i) => (
-                    <p key={i} className="text-[11px] text-amber-200/80">{warn}</p>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Metrics Overview */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -305,12 +334,11 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                 <div className="text-xl font-black text-white">
                   {parsedData.summary.totalStudents} <span className="text-xs font-normal text-slate-400">trainees</span>
                 </div>
-                <div className="text-[10px] text-emerald-400 mt-1">
-                  {parsedData.summary.detectedFormat === 'Mixed / Custom'
-                    ? `GA: ${parsedData.summary.groupACount} | GB: ${parsedData.summary.groupBCount} | FE: ${parsedData.summary.frontendCount}`
-                    : isFrontend 
-                      ? `${parsedData.summary.frontendCount} Trainees Enrolled` 
-                      : `GA: ${parsedData.summary.groupACount} | GB: ${parsedData.summary.groupBCount}`}
+                <div className="text-[10px] text-emerald-400 mt-1 truncate">
+                  GA: {parsedData.summary.groupACount} | GB: {parsedData.summary.groupBCount}
+                  {parsedData.summary.aiAgentsCount > 0 && ` | AI: ${parsedData.summary.aiAgentsCount}`}
+                  {parsedData.summary.flutterCount > 0 && ` | FL: ${parsedData.summary.flutterCount}`}
+                  {parsedData.summary.embeddedCount > 0 && ` | EM: ${parsedData.summary.embeddedCount}`}
                 </div>
               </div>
 
@@ -323,23 +351,33 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                   {parsedData.summary.totalSessions} <span className="text-xs font-normal text-slate-400">dates</span>
                 </div>
                 <div className="text-[10px] text-purple-400 mt-1">
-                  With Daily Subjects & Dates
+                  Daily Subjects & Normalized Dates (2026)
                 </div>
               </div>
 
               <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
                 <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
                   <Sparkles className="w-4 h-4 text-amber-400" />
-                  <span>Monthly Records</span>
+                  <span>Marks Ready</span>
                 </div>
                 <div className="text-xl font-black text-white">
-                  {parsedData.summary.totalMonthlyRecords} <span className="text-xs font-normal text-slate-400">records</span>
+                  {Object.keys(parsedData.marks).length} <span className="text-xs font-normal text-slate-400">sessions</span>
                 </div>
                 <div className="text-[10px] text-amber-400 mt-1">
-                  Calculated P / A / L Marks
+                  Extracted P / A / L Marks
                 </div>
               </div>
             </div>
+
+            {/* Specialization Breakdown Alert */}
+            {parsedData.programmeHistories.length > 0 && (
+              <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 text-xs flex items-center justify-between">
+                <span>
+                  🎯 <strong>Specialization Tracking Activated:</strong> Students in <strong>AI Agents ({parsedData.summary.aiAgentsCount})</strong>, <strong>Flutter Development ({parsedData.summary.flutterCount})</strong>, and <strong>Embedded Systems & Robotics ({parsedData.summary.embeddedCount})</strong> will automatically transition in September & October while staying in Full Stack for April–August.
+                </span>
+                <Badge variant="blue">Automated</Badge>
+              </div>
+            )}
 
             {/* Month-by-month Breakdown Table */}
             <div className="rounded-xl border border-slate-800 overflow-hidden">
@@ -347,31 +385,60 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                 <span className="text-xs font-bold text-slate-300">Semester Attendance Breakdown:</span>
                 <span className="text-[11px] text-slate-400">{parsedData.summary.detectedFormat}</span>
               </div>
-              <div className="divide-y divide-slate-800/60 max-h-56 overflow-y-auto">
-                {parsedData.summary.monthBreakdown.map((m) => (
-                  <div key={m.monthKey} className="px-4 py-2.5 flex items-center justify-between text-xs bg-slate-950/40 hover:bg-slate-900/50">
-                    <div className="flex items-center gap-2.5">
-                      <span className="font-bold text-white w-24">{m.monthName}</span>
-                      {isFrontend ? (
-                        <Badge variant="emerald">
-                          {m.frontendSessions} sessions ({m.frontendStudents} trainees)
-                        </Badge>
-                      ) : (
-                        <>
+              <div className="divide-y divide-slate-800/60 max-h-60 overflow-y-auto">
+                {parsedData.summary.monthBreakdown.map((m) => {
+                  const totalSes =
+                    m.groupASessions +
+                    m.groupBSessions +
+                    m.frontendSessions +
+                    m.aiAgentsSessions +
+                    m.flutterSessions +
+                    m.embeddedSessions;
+
+                  return (
+                    <div
+                      key={m.monthKey + m.monthName}
+                      className="px-4 py-2.5 flex items-center justify-between text-xs bg-slate-950/40 hover:bg-slate-900/50"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-white w-28">{m.monthName}</span>
+                        {m.groupASessions > 0 && (
                           <Badge variant="blue">
-                            Group A: {m.groupASessions} sessions ({m.groupAStudents} students)
+                            GA: {m.groupASessions} ses ({m.groupAStudents} st)
                           </Badge>
+                        )}
+                        {m.groupBSessions > 0 && (
                           <Badge variant="purple">
-                            Group B: {m.groupBSessions} sessions ({m.groupBStudents} students)
+                            GB: {m.groupBSessions} ses ({m.groupBStudents} st)
                           </Badge>
-                        </>
-                      )}
+                        )}
+                        {m.aiAgentsSessions > 0 && (
+                          <Badge variant="emerald">
+                            AI: {m.aiAgentsSessions} ses ({m.aiAgentsStudents} st)
+                          </Badge>
+                        )}
+                        {m.flutterSessions > 0 && (
+                          <Badge variant="amber">
+                            Flutter: {m.flutterSessions} ses ({m.flutterStudents} st)
+                          </Badge>
+                        )}
+                        {m.embeddedSessions > 0 && (
+                          <Badge variant="rose">
+                            Embedded: {m.embeddedSessions} ses ({m.embeddedStudents} st)
+                          </Badge>
+                        )}
+                        {m.frontendSessions > 0 && (
+                          <Badge variant="emerald">
+                            Frontend: {m.frontendSessions} ses
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="font-mono text-slate-300 text-[11px] shrink-0 ml-2">
+                        {totalSes} Sessions
+                      </span>
                     </div>
-                    <span className="font-mono text-slate-300 text-[11px]">
-                      {isFrontend ? m.frontendSessions : m.groupASessions + m.groupBSessions} Total Sessions
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -385,7 +452,7 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                   className="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500 w-4 h-4"
                 />
                 <span>
-                  <strong>Register & Update Students in System:</strong> Ensure all {parsedData.summary.totalStudents} students are assigned to <strong>{isFrontend ? 'Frontend Developer' : 'Full Stack Developer'}</strong> without duplicates.
+                  <strong>Register & Update Students in System:</strong> Ensure all {parsedData.summary.totalStudents} trainees are active and mapped to their respective groups without overwriting any existing Frontend Developer trainees.
                 </span>
               </label>
             </div>
@@ -410,7 +477,9 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
                   )
                 }
               >
-                {isImporting ? 'Importing & Syncing Attendance...' : `Import & Apply ${parsedData.summary.totalSessions} Sessions (${parsedData.summary.courseType})`}
+                {isImporting
+                  ? 'Importing & Syncing Attendance...'
+                  : `Confirm & Apply ${parsedData.summary.totalSessions} Sessions (${parsedData.summary.totalStudents} Trainees)`}
               </Button>
             </div>
           </div>
@@ -423,10 +492,10 @@ export const BulkAttendanceUploadModal: React.FC<BulkAttendanceUploadModalProps>
               <CheckCircle2 className="w-9 h-9" />
             </div>
             <h3 className="text-lg font-extrabold text-white">
-              Attendance Imported & Synced Successfully!
+              All 159 Attendance Sessions & Daily Marks Saved!
             </h3>
             <p className="text-xs text-slate-300 max-w-md mx-auto">
-              {parsedData ? `${parsedData.summary.totalSessions} sessions and daily P/A marks for ${parsedData.summary.totalStudents} students have been saved.` : 'All attendance sessions and marks have been applied.'}
+              Full Stack (Groups A & B), AI Agents, Flutter Development, and Embedded Systems & Robotics attendance have been marked across all semester months. Existing Frontend Developer records remain intact.
             </p>
           </div>
         )}

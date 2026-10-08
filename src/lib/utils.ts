@@ -312,9 +312,11 @@ export function getStudentProgrammeAtDate(
   history: ProgrammeHistory[],
   date: string
 ): { programme: string; group: string | null } {
+  const cleanUt = (student.utNumber || '').trim().toUpperCase();
+
   // Filter history for this student and sort ascending by effectiveFrom date
-  const studentHistory = history
-    .filter(h => h.studentId === student.id)
+  const studentHistory = (history || [])
+    .filter(h => h.studentId === student.id || (cleanUt && (h.studentId === cleanUt || h.studentId === `STU-${cleanUt}`)))
     .sort((a, b) => new Date(a.effectiveFrom).getTime() - new Date(b.effectiveFrom).getTime());
 
   let applicableRecord = null;
@@ -333,11 +335,14 @@ export function getStudentProgrammeAtDate(
     };
   }
 
-  // Fallback to their current profile. In a true event-sourced system, we'd have their 
-  // initial state in history. Since we don't, we assume their current state is their 
-  // initial state if no history exists for this date.
+  // Fallback to their current profile
+  const baseProgramme =
+    student.courseId === 'CRS-TIC-01'
+      ? 'Full Stack Developer'
+      : (student.courseName || student.courseId || '');
+
   return {
-    programme: student.courseId || '',
+    programme: baseProgramme,
     group: resolveStudentGroup(student)
   };
 }

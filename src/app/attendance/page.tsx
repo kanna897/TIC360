@@ -396,10 +396,10 @@ export default function AttendancePage() {
             variant="primary"
             size="sm"
             onClick={() => setIsBulkExcelModalOpen(true)}
-            leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-200" />}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-md shadow-emerald-950/40 border border-emerald-400/40"
+            leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-100" />}
+            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold shadow-lg shadow-emerald-950/40 border border-emerald-400/50"
           >
-            Bulk Upload 6 Months (Excel)
+            ⚡ Temp Attendance Uploader (2026 Excel)
           </Button>
 
           <Link href="/absentees-form">
