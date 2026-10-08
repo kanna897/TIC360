@@ -686,11 +686,11 @@ export default function BlossomPaymentsPage() {
                         <td className="py-3 px-1.5 font-extrabold font-mono tracking-wide text-xs whitespace-nowrap text-center">
                           {isDropout ? (
                             <span className="line-through text-red-400 opacity-60">
-                              {stu.blossomAmount !== undefined ? `LKR ${stu.blossomAmount.toLocaleString()}` : 'LKR 15,000'}
+                              {stu.blossomAmount !== undefined && stu.blossomAmount > 0 ? `LKR ${stu.blossomAmount.toLocaleString()}` : 'LKR 15,000'}
                             </span>
                           ) : (
                             <span className="text-indigo-400">
-                              {stu.isBlossomTrust ? (stu.blossomAmount !== undefined ? `LKR ${stu.blossomAmount.toLocaleString()}` : 'LKR 15,000') : 'LKR 0'}
+                              {stu.isBlossomTrust ? (stu.blossomAmount !== undefined && stu.blossomAmount > 0 ? `LKR ${stu.blossomAmount.toLocaleString()}` : 'LKR 15,000') : 'LKR 0'}
                             </span>
                           )}
                         </td>

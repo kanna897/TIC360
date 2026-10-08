@@ -514,6 +514,8 @@ export const fetchAllFromSupabase = async () => {
   });
 
   const bankMap = new Map((bankDetailsRaw || []).map((b: any) => [b.student_id, b]));
+  const blossomAmountsMap =
+    ((settingsData?.find((s: any) => s.key === 'blossom_student_amounts')?.value as Record<string, number>) || {});
   
   const paymentMap = new Map();
   const sortedPayments = [...(blossomPayRaw || [])].sort((a: any, b: any) => (a.month > b.month ? 1 : -1));
@@ -542,9 +544,22 @@ export const fetchAllFromSupabase = async () => {
       };
     }
 
-    const pay = paymentMap.get(student.id);
-    if (pay && pay.amount !== undefined && pay.amount !== null) {
-      student.blossomAmount = Number(pay.amount);
+    const cleanUt = (student.utNumber || '').trim().toUpperCase();
+    const savedBaseAmt =
+      blossomAmountsMap[student.id] ??
+      blossomAmountsMap[cleanUt] ??
+      blossomAmountsMap[student.utNumber] ??
+      (student.fullName ? blossomAmountsMap[student.fullName.trim().toLowerCase()] : undefined);
+
+    if (savedBaseAmt !== undefined && savedBaseAmt !== null && Number(savedBaseAmt) > 0) {
+      student.blossomAmount = Number(savedBaseAmt);
+    } else {
+      const pay = paymentMap.get(student.id);
+      if (pay && Number(pay.amount) > 0) {
+        student.blossomAmount = Number(pay.amount);
+      } else if (student.isBlossomTrust) {
+        student.blossomAmount = 15000;
+      }
     }
 
     return student;
@@ -680,8 +695,20 @@ export const syncAllToSupabase = async (state: {
   auditLogs: AuditLog[];
   settings: SystemSettings | null;
   programmeHistory?: any[];
+  blossomStudentAmounts?: Record<string, number>;
 }) => {
   console.log('[supabaseSync] Background full sync...');
+
+  if (state.blossomStudentAmounts && Object.keys(state.blossomStudentAmounts).length > 0) {
+    try {
+      await supabase.from('system_settings').upsert({
+        key: 'blossom_student_amounts',
+        value: state.blossomStudentAmounts,
+      });
+    } catch (e) {
+      console.warn('[supabaseSync] Failed to sync blossom_student_amounts to system_settings:', e);
+    }
+  }
 
   if (state.programmeHistory && state.programmeHistory.length > 0) {
     try {

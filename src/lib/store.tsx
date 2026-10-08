@@ -237,6 +237,7 @@ const STORAGE_KEYS = {
   ABSENCES: 'tic360_v2_absences',
   CAREER_SURVEYS: 'tic360_v2_career_surveys',
   PROGRAMME_HISTORY: 'tic360_v2_programme_history',
+  BLOSSOM_AMOUNTS: 'tic360_v2_blossom_amounts',
   ROLE: 'tic360_v2_current_role',
   THEME: 'tic360_v2_theme',
   AUTH_USER: 'tic360_v2_auth_user',
@@ -334,6 +335,12 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         // Load from Supabase
         const data = await fetchAllFromSupabase();
         if (data.students?.length) {
+          let localAmounts: Record<string, number> = {};
+          try {
+            const raw = localStorage.getItem(STORAGE_KEYS.BLOSSOM_AMOUNTS);
+            if (raw) localAmounts = JSON.parse(raw);
+          } catch (e) {}
+
           const seen = new Set<string>();
           const deduped: Student[] = [];
           data.students.forEach((s: Student) => {
@@ -341,6 +348,18 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
             if (!key) return;
             if (!seen.has(key)) {
               seen.add(key);
+              // Ensure blossomAmount is preserved and never wiped out to 0
+              if (s.isBlossomTrust && (!s.blossomAmount || s.blossomAmount <= 0)) {
+                const fallbackAmt =
+                  localAmounts[s.id] ||
+                  localAmounts[key] ||
+                  (s.fullName ? localAmounts[s.fullName.trim().toLowerCase()] : undefined);
+                if (fallbackAmt && fallbackAmt > 0) {
+                  s.blossomAmount = fallbackAmt;
+                } else {
+                  s.blossomAmount = 15000;
+                }
+              }
               // Ensure group is deterministically assigned
               s.group = resolveStudentGroup(s);
               // Fix UT011700 if accidentally assigned to Frontend Developer
@@ -529,12 +548,29 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem(STORAGE_KEYS.ORG_PROFILE, JSON.stringify(orgProfile));
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
       localStorage.setItem(STORAGE_KEYS.PROGRAMME_HISTORY, JSON.stringify(programmeHistory));
+
+      const blossomStudentAmounts: Record<string, number> = {};
+      students.forEach((s) => {
+        if (s.isBlossomTrust && s.blossomAmount !== undefined && s.blossomAmount > 0) {
+          if (s.id) blossomStudentAmounts[s.id] = s.blossomAmount;
+          if (s.utNumber) blossomStudentAmounts[s.utNumber.trim().toUpperCase()] = s.blossomAmount;
+        }
+      });
+      localStorage.setItem(STORAGE_KEYS.BLOSSOM_AMOUNTS, JSON.stringify(blossomStudentAmounts));
     } catch (e) {
       console.warn('localStorage backup error:', e);
     }
 
     if (checkIsSupabaseConfigured()) {
       const timer = setTimeout(() => {
+        const blossomStudentAmounts: Record<string, number> = {};
+        students.forEach((s) => {
+          if (s.isBlossomTrust && s.blossomAmount !== undefined && s.blossomAmount > 0) {
+            if (s.id) blossomStudentAmounts[s.id] = s.blossomAmount;
+            if (s.utNumber) blossomStudentAmounts[s.utNumber.trim().toUpperCase()] = s.blossomAmount;
+          }
+        });
+
         syncAllToSupabase({
           students,
           courses,
@@ -551,6 +587,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           auditLogs,
           settings,
           programmeHistory,
+          blossomStudentAmounts,
         });
       }, 2000);
       return () => clearTimeout(timer);
@@ -915,9 +952,37 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       return nextStudents;
     });
 
+    const studentAmountsMap: Record<string, number> = {};
+    rows.forEach((row) => {
+      if (!row.fullName && !row.utNumber) return;
+      const cleanUt = row.utNumber?.trim().toUpperCase();
+      const cleanName = row.fullName?.trim().toLowerCase();
+      const amt = row.amount !== undefined ? parseAmt(row.amount) : 15000;
+      if (amt > 0) {
+        if (cleanUt) studentAmountsMap[cleanUt] = amt;
+        if (cleanName) studentAmountsMap[cleanName] = amt;
+      }
+    });
+
+    try {
+      const existingStored = JSON.parse(localStorage.getItem(STORAGE_KEYS.BLOSSOM_AMOUNTS) || '{}');
+      const mergedAmounts = { ...existingStored, ...studentAmountsMap };
+      localStorage.setItem(STORAGE_KEYS.BLOSSOM_AMOUNTS, JSON.stringify(mergedAmounts));
+    } catch (e) {}
+
     if (checkIsSupabaseConfigured()) {
       setTimeout(async () => {
         try {
+          // Persist blossom amounts map to Supabase system_settings
+          supabase.from('system_settings').select('*').eq('key', 'blossom_student_amounts').maybeSingle().then(({ data }) => {
+            const existingDbAmounts = (data?.value as Record<string, number>) || {};
+            const finalMerged = { ...existingDbAmounts, ...studentAmountsMap };
+            supabase.from('system_settings').upsert({
+              key: 'blossom_student_amounts',
+              value: finalMerged,
+            }).then(() => console.log('[store] blossom_student_amounts synced to system_settings'));
+          });
+
           const { data: currentDbStudents } = await supabase.from('students').select('*');
           rows.forEach((row) => {
             if (!row.fullName && !row.utNumber) return;
