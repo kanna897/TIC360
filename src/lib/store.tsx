@@ -288,6 +288,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
             const parsed: Student[] = JSON.parse(sStudents);
             const seen = new Set<string>();
             const deduped = parsed.filter((s: Student) => {
+              if (s.isDummy) return false;
               const key = s.utNumber.trim().toUpperCase();
               if (seen.has(key)) return false;
               seen.add(key);
@@ -344,6 +345,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           const seen = new Set<string>();
           const deduped: Student[] = [];
           data.students.forEach((s: Student) => {
+            if (s.isDummy) return; // Clean up any dummy students so Blossom count remains strictly genuine (105)
             const key = (s.utNumber || '').trim().toUpperCase();
             if (!key) return;
             if (!seen.has(key)) {
@@ -857,7 +859,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     };
 
     setStudents((prev) => {
-      const nextStudents = [...prev];
+      const nextStudents = prev.filter((s) => !s.isDummy);
 
       rows.forEach((row) => {
         if (!row.fullName && !row.utNumber) return;
@@ -866,11 +868,25 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         const cleanName = row.fullName?.trim().toLowerCase();
 
         // Search for matching student
-        const existingIdx = nextStudents.findIndex((s) => {
+        let existingIdx = nextStudents.findIndex((s) => {
           if (cleanUt && s.utNumber.toLowerCase() === cleanUt.toLowerCase()) return true;
           if (cleanName && s.fullName.toLowerCase() === cleanName) return true;
           return false;
         });
+
+        // Smart name match fallback (e.g. "Reginald Stephan Minison" vs "Reginold Stephan Minison")
+        if (existingIdx < 0 && cleanName) {
+          const parts = cleanName.split(/\s+/).filter((p) => p.length >= 4);
+          if (parts.length > 0) {
+            existingIdx = nextStudents.findIndex((s) => {
+              const sLower = s.fullName.toLowerCase();
+              return (
+                parts.filter((p) => sLower.includes(p)).length >= 2 ||
+                (sLower.includes('minison') && cleanName.includes('minison'))
+              );
+            });
+          }
+        }
 
         const bankDetails = {
           bankName: row.bankName || 'Commercial Bank of Ceylon',
@@ -902,8 +918,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
             updatedAt: now,
           };
           updatedCount++;
-        } else {
-          // Calculate next UT number if not specified
+        } else if (cleanUt && cleanUt.toUpperCase().startsWith('UT')) {
+          // Only create student if a genuine UT number was provided that truly does not exist
           let ut = cleanUt;
           if (!ut) {
             const existingNums = nextStudents

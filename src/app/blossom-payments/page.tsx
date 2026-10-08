@@ -84,6 +84,7 @@ export default function BlossomPaymentsPage() {
   // Only Blossom Trust Students (or all students with search & district filtering)
   const blossomStudents = useMemo(() => {
     return students.filter((s) => {
+      if (s.isDummy) return false;
       const isBlossom = s.isBlossomTrust;
       const matchesSearch =
         s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||

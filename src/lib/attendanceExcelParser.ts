@@ -420,7 +420,7 @@ export const parseAttendanceExcel = async (
             batchId: 'BAT-2026',
             batchName: 'Batch 2026',
             currentStatus: existingStu?.currentStatus || 'Active',
-            isBlossomTrust: existingStu?.isBlossomTrust ?? true,
+            isBlossomTrust: existingStu?.isBlossomTrust ?? false,
             email: existingStu?.email || `${utNo.toLowerCase()}@unicomtic.lk`,
             phone: existingStu?.phone || 'N/A',
             address: existingStu?.address || 'Jaffna, Sri Lanka',
