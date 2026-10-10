@@ -3,6 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ClipboardList,
   Calendar,
@@ -13,6 +14,7 @@ import {
   AlertCircle,
   Clock,
   ArrowRight,
+  ArrowLeft,
   Search,
   Filter,
   Check,
@@ -29,6 +31,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 
 export default function AbsenteesFormPage() {
+  const router = useRouter();
   const { students, absenceRequests, submitAbsenceRequest, updateAbsenceRequestStatus, currentRole } = useStore();
 
   const [activeTab, setActiveTab] = useState<'form' | 'ledger'>('form');
@@ -147,8 +150,39 @@ export default function AbsenteesFormPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-16">
+      {/* Top Navigation & Back Bar */}
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.history.length > 1) {
+              router.back();
+            } else {
+              router.push('/attendance');
+            }
+          }}
+          className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs font-bold text-slate-300 hover:text-white transition-all shadow-sm active:scale-95"
+        >
+          <ArrowLeft className="w-4 h-4 text-slate-400 group-hover:text-blue-400 group-hover:-translate-x-0.5 transition-transform" />
+          <span>Back</span>
+        </button>
+
+        <div className="flex items-center gap-2">
+          <Link href="/attendance">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<CalendarCheck className="w-4 h-4 text-emerald-400" />}
+              className="border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 text-xs"
+            >
+              View Attendance Matrix
+            </Button>
+          </Link>
+        </div>
+      </div>
+
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="border-b border-slate-800 pb-5">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="blue">Student Services & Attendance</Badge>
@@ -164,19 +198,6 @@ export default function AbsenteesFormPage() {
           <p className="text-sm text-slate-400 mt-1">
             This form is to be filled when leave is taken, prior to the date.
           </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Link href="/attendance">
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<CalendarCheck className="w-4 h-4 text-emerald-400" />}
-              className="border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
-            >
-              View Attendance Matrix
-            </Button>
-          </Link>
         </div>
       </div>
 
