@@ -779,7 +779,9 @@ export default function AttendancePage() {
 
                   const totalHeld = monthSessions.length;
                   const pct = totalHeld > 0 ? Math.round((pCount / totalHeld) * 100) : 100;
-                  const meetsThreshold = pct >= settings.paymentEligibilityAttendanceThreshold;
+                  const monthlyThreshold = settings.blossomMonthlyThresholds?.[selectedMonthString] ?? settings.paymentEligibilityAttendanceThreshold;
+                  const isLowAttendance = !isDropoutInMonth && (pct < monthlyThreshold || stu.currentStatus === 'Low Attendance');
+                  const meetsThreshold = !isLowAttendance;
 
                   return (
                     <tr
@@ -921,11 +923,23 @@ export default function AttendancePage() {
                       {/* % Attendance */}
                       <td className="py-2 px-2 text-center bg-slate-900/60">
                         <span
-                          className={`inline-block px-2 py-0.5 rounded font-mono font-extrabold text-[11px] ${
-                            meetsThreshold
-                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
-                              : 'bg-rose-950 text-rose-300 border border-rose-500/40'
+                          className={`inline-block px-2 py-0.5 rounded font-mono font-extrabold text-[11px] transition-all ${
+                            isLowAttendance
+                              ? 'border shadow-[0_0_10px_rgba(255,255,0,0.25)]'
+                              : isDropoutInMonth
+                              ? 'bg-rose-950 text-rose-300 border border-rose-500/40'
+                              : 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
                           }`}
+                          style={
+                            isLowAttendance
+                              ? {
+                                  backgroundColor: 'rgba(255, 255, 0, 0.18)',
+                                  color: '#ffff00',
+                                  borderColor: 'rgba(255, 255, 0, 0.6)',
+                                  textShadow: '0 0 6px rgba(255, 255, 0, 0.4)',
+                                }
+                              : undefined
+                          }
                         >
                           {pct}%
                         </span>

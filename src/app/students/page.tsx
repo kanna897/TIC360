@@ -693,19 +693,26 @@ export default function StudentsPage() {
                     });
                     
                     const livePercentage = totalCount > 0 ? (presentCount / totalCount) * 100 : 100;
-                    const isLowAttendance = !isDropout && (livePercentage < settings.attendanceGoodThreshold);
+                    const isLowAttendance = !isDropout && (livePercentage < settings.attendanceGoodThreshold || stu.currentStatus === 'Low Attendance');
 
                     let rowClass = "hover:bg-slate-900/80 transition-colors group border-b border-slate-800/60";
+                    let rowStyle: React.CSSProperties | undefined = undefined;
+
                     if (isDropout) {
                       rowClass = "bg-red-950/40 hover:bg-red-900/40 border-b border-red-900/50 transition-colors group";
                     } else if (isLowAttendance) {
-                      rowClass = "bg-amber-950/20 hover:bg-amber-900/30 border-b border-amber-900/50 transition-colors group";
+                      rowClass = "hover:bg-[#ffff00]/20 border-b border-[#ffff00]/40 transition-colors group";
+                      rowStyle = {
+                        backgroundColor: 'rgba(255, 255, 0, 0.12)',
+                        boxShadow: 'inset 4px 0 0 0 #ffff00',
+                      };
                     }
 
                     return (
                       <tr
                         key={stu.id}
                         className={rowClass}
+                        style={rowStyle}
                       >
                         {/* NO */}
                         <td className="py-3.5 px-2 text-center font-bold text-slate-300 text-sm sm:text-base">

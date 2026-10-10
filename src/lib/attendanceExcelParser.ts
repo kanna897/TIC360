@@ -136,9 +136,13 @@ export const parseAttendanceExcel = async (
   // Seed existing students into studentsMap to preserve their IDs and details
   if (existingStudents && existingStudents.length > 0) {
     existingStudents.forEach((stu) => {
-      const cleanUt = (stu.utNumber || '').trim().toUpperCase();
+      const cleanUt = (stu.utNumber || '').trim().toUpperCase().replace(/\s+/g, '');
       if (cleanUt) {
         studentsMap.set(cleanUt, stu);
+        studentsMap.set((stu.utNumber || '').trim().toUpperCase(), stu);
+        if (cleanUt === 'UT011757') {
+          studentsMap.set('UT001757', stu);
+        }
       }
     });
   }
@@ -404,19 +408,23 @@ export const parseAttendanceExcel = async (
         const row = rows[r] || [];
         if (!row || !row.length) continue;
 
-        const c1 = String(row[1] || '').trim().toUpperCase();
-        const c0 = String(row[0] || '').trim().toUpperCase();
-        const utNo =
-          c1.startsWith('UT') && c1 !== 'UT NO' && c1 !== 'UT_NO'
-            ? c1
-            : c0.startsWith('UT') && c0 !== 'UT NO' && c0 !== 'UT_NO'
-            ? c0
+        const rawC1 = String(row[1] || '').trim().toUpperCase();
+        const rawC0 = String(row[0] || '').trim().toUpperCase();
+        const normC1 = rawC1.replace(/\s+/g, '');
+        const normC0 = rawC0.replace(/\s+/g, '');
+        let utNo =
+          normC1.startsWith('UT') && normC1 !== 'UTNO' && normC1 !== 'UT_NO'
+            ? normC1
+            : normC0.startsWith('UT') && normC0 !== 'UTNO' && normC0 !== 'UT_NO'
+            ? normC0
             : null;
 
         if (!utNo) continue;
+        if (utNo === 'UT001757') utNo = 'UT011757';
 
         const name = String(row[2] || row[1] || utNo).trim();
-        const studentId = `STU-${utNo}`;
+        const existingStu = studentsMap.get(utNo);
+        const studentId = existingStu?.id || `STU-${utNo}`;
 
         const isFrontendSection = sec.groupName === 'Frontend Developer';
 

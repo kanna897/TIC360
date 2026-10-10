@@ -117,15 +117,29 @@ export default function BlossomPaymentsPage() {
   // Payments for this month, dynamically synced with live attendance
   const currentMonthPayments = useMemo(() => {
     const monthlyThreshold = settings.blossomMonthlyThresholds?.[selectedMonthString] ?? settings.paymentEligibilityAttendanceThreshold;
-    return blossomPayments
+     return blossomPayments
       .filter((p) => p.month === selectedMonthString)
       .map(p => {
          const student = students.find((s) => s.id === p.studentId);
          const isDropout = student?.currentStatus === 'Dropout';
          const liveAtt = monthlyAttendance.find(m => m.studentId === p.studentId && m.month === selectedMonthString);
-         const attPct = liveAtt ? liveAtt.attendancePercentage : 0;
+         let attPct = liveAtt ? liveAtt.attendancePercentage : 0;
          
-         const isLowAtt = attPct < monthlyThreshold;
+         if (!liveAtt && student) {
+           const sesList = attendanceSessions.filter(ses =>
+             ses.month === selectedMonthString || ses.date?.startsWith(selectedMonthString)
+           );
+           if (sesList.length > 0) {
+             let pCount = 0;
+             sesList.forEach(ses => {
+               const mark = attendanceMarks[ses.id]?.[student.id];
+               if (mark === 'P' || mark === 'L' || (!mark && !isDropout)) pCount++;
+             });
+             attPct = Math.round((pCount / sesList.length) * 100);
+           }
+         }
+         
+         const isLowAtt = !isDropout && (attPct < monthlyThreshold || student?.currentStatus === 'Low Attendance');
          
          // Only Dropouts or manually marked students are forced to Not Eligible.
          // Low attendance is just a visual warning now.
@@ -616,33 +630,66 @@ export default function BlossomPaymentsPage() {
                     paginatedBlossomStudents.map((stu, index) => {
                       const isDropout = stu.currentStatus === 'Dropout';
 
-                      // Live attendance calculation (same logic as Student Directory)
+                      // 1. Saved Monthly Attendance Record (if any)
+                      const savedMonthlyRec = monthlyAttendance.find(
+                        (m) =>
+                          (m.studentId === stu.id || (m.utNumber && stu.utNumber && m.utNumber.trim().toUpperCase() === stu.utNumber.trim().toUpperCase())) &&
+                          m.month === selectedMonthString
+                      );
+
+                      // 2. Live attendance calculation matching sessions
                       const isFrontend = stu.courseName === 'Frontend Developer' || stu.courseId === 'Frontend Developer';
-                      const mySessions = attendanceSessions.filter(ses =>
+                      const myMonthSessions = attendanceSessions.filter(ses => {
+                        const isMatchMonth = !selectedMonthString || ses.month === selectedMonthString || ses.date?.startsWith(selectedMonthString);
+                        if (!isMatchMonth && attendanceMarks[ses.id]?.[stu.id] === undefined) return false;
+                        if (attendanceMarks[ses.id]?.[stu.id] !== undefined) return true;
+                        return (
+                          ses.group === 'All' ||
+                          (!isFrontend && (ses.group === 'Group A' || ses.group === 'Group B') && (ses.group === stu.group || (ses.group === 'Group A' && (!stu.group || stu.group === 'A')) || (ses.group === 'Group B' && stu.group === 'B'))) ||
+                          (isFrontend && ses.group === 'Frontend Developer')
+                        );
+                      });
+
+                      const allStudentSessions = attendanceSessions.filter(ses =>
                         ses.group === 'All' ||
-                        (!isFrontend && (ses.group === 'Group A' || ses.group === 'Group B') && (ses.group === stu.group || (ses.group === 'Group A' && stu.group === 'A') || (ses.group === 'Group B' && stu.group === 'B'))) ||
+                        (!isFrontend && (ses.group === 'Group A' || ses.group === 'Group B') && (ses.group === stu.group || (ses.group === 'Group A' && (!stu.group || stu.group === 'A')) || (ses.group === 'Group B' && stu.group === 'B'))) ||
                         (isFrontend && ses.group === 'Frontend Developer')
                       );
+
+                      const activeSessions = myMonthSessions.length > 0 ? myMonthSessions : allStudentSessions;
                       let presentCount = 0;
-                      const totalCount = mySessions.length;
-                      mySessions.forEach(ses => {
+                      const totalCount = activeSessions.length;
+                      activeSessions.forEach(ses => {
                         const mark = attendanceMarks[ses.id]?.[stu.id];
-                        if (mark === 'P' || mark === 'L' || !mark) presentCount++;
+                        if (mark === 'P' || mark === 'L' || (!mark && !isDropout)) presentCount++;
                       });
-                      const livePercentage = totalCount > 0 ? (presentCount / totalCount) * 100 : 100;
-                      const isLowAttendance = !isDropout && livePercentage < settings.attendanceGoodThreshold;
+                      const livePercentage = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 100;
+                      const effectivePct = savedMonthlyRec ? savedMonthlyRec.attendancePercentage : livePercentage;
+
+                      const monthlyThreshold = settings.blossomMonthlyThresholds?.[selectedMonthString] ?? settings.paymentEligibilityAttendanceThreshold;
+                      const isLowAttendance = !isDropout && (
+                        effectivePct < monthlyThreshold ||
+                        stu.currentStatus === 'Low Attendance'
+                      );
 
                       let rowClass = "hover:bg-slate-900/80 transition-colors group border-b border-slate-800/60";
+                      let rowStyle: React.CSSProperties | undefined = undefined;
+
                       if (isDropout) {
                         rowClass = "bg-red-950/40 hover:bg-red-900/40 border-b border-red-900/50 transition-colors group";
                       } else if (isLowAttendance) {
-                        rowClass = "bg-amber-950/20 hover:bg-amber-900/30 border-b border-amber-900/50 transition-colors group";
+                        rowClass = "hover:bg-[#ffff00]/20 border-b border-[#ffff00]/40 transition-colors group";
+                        rowStyle = {
+                          backgroundColor: 'rgba(255, 255, 0, 0.12)',
+                          boxShadow: 'inset 4px 0 0 0 #ffff00',
+                        };
                       }
 
                       return (
                       <tr
                         key={stu.id}
                         className={rowClass}
+                        style={rowStyle}
                       >
                         {/* NO */}
                         <td className="py-3 px-1.5 text-center font-bold text-slate-300 text-xs">
@@ -651,18 +698,31 @@ export default function BlossomPaymentsPage() {
 
                         {/* UT NO */}
                         <td className="py-3 px-1.5 font-extrabold font-mono text-xs tracking-wide whitespace-nowrap">
-                          <span className={isDropout ? 'line-through text-red-400 opacity-70' : 'text-white'}>{stu.utNumber}</span>
+                          <span className={isDropout ? 'line-through text-red-400 opacity-70' : isLowAttendance ? 'text-[#ffff00]' : 'text-white'}>{stu.utNumber}</span>
                         </td>
 
                         {/* NAME */}
                         <td className="py-3 px-1.5 font-bold text-xs whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            <span className={isDropout ? 'line-through text-red-300 opacity-70' : 'text-slate-100 group-hover:text-blue-400 transition-colors'}>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={isDropout ? 'line-through text-red-300 opacity-70' : isLowAttendance ? 'text-yellow-200 font-extrabold' : 'text-slate-100 group-hover:text-blue-400 transition-colors'}>
                               {stu.fullName}
                             </span>
                             {isDropout && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-red-500/20 border border-red-500/40 text-red-400 tracking-wider whitespace-nowrap">
                                 ✂ STOPPED
+                              </span>
+                            )}
+                            {isLowAttendance && (
+                              <span
+                                className="px-1.5 py-0.5 rounded text-[10px] font-black tracking-wider whitespace-nowrap shadow-sm flex items-center gap-1"
+                                style={{
+                                  backgroundColor: 'rgba(255, 255, 0, 0.2)',
+                                  color: '#ffff00',
+                                  border: '1px solid rgba(255, 255, 0, 0.6)',
+                                  textShadow: '0 0 6px rgba(255, 255, 0, 0.4)',
+                                }}
+                              >
+                                ⚠️ LOW ATTENDANCE ({effectivePct}%)
                               </span>
                             )}
                           </div>
@@ -915,7 +975,22 @@ export default function BlossomPaymentsPage() {
                     filteredPayments.map((pay) => {
                       const student = students.find((s) => s.id === pay.studentId);
                       return (
-                        <tr key={pay.id} className={`transition-colors ${pay.isLowAtt && pay.isEligible ? 'bg-amber-950/20 hover:bg-amber-900/30 border-l-2 border-amber-500' : 'hover:bg-slate-900/40'}`}>
+                        <tr
+                          key={pay.id}
+                          className={`transition-colors ${
+                            pay.isLowAtt && pay.isEligible
+                              ? 'hover:bg-[#ffff00]/20 border-b border-[#ffff00]/40'
+                              : 'hover:bg-slate-900/40'
+                          }`}
+                          style={
+                            pay.isLowAtt && pay.isEligible
+                              ? {
+                                  backgroundColor: 'rgba(255, 255, 0, 0.12)',
+                                  boxShadow: 'inset 4px 0 0 0 #ffff00',
+                                }
+                              : undefined
+                          }
+                        >
                           {/* Scholar */}
                           <td className="py-3.5 px-4 sm:px-6">
                             <p className="font-bold text-slate-100">{pay.studentName}</p>
@@ -928,15 +1003,23 @@ export default function BlossomPaymentsPage() {
                               <div className="flex items-center gap-1.5">
                                 <span
                                   className={`font-mono font-bold ${
-                                    !pay.isLowAtt ? 'text-emerald-400' : 'text-amber-400'
+                                    !pay.isLowAtt ? 'text-emerald-400' : ''
                                   }`}
+                                  style={pay.isLowAtt ? { color: '#ffff00', textShadow: '0 0 6px rgba(255, 255, 0, 0.4)' } : undefined}
                                 >
                                   {pay.attendancePercentage.toFixed(1)}%
                                 </span>
                               </div>
                               {pay.isLowAtt && pay.isEligible && (
-                                <span className="text-[10px] font-bold text-amber-400 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-500/30 w-fit">
-                                  🟡 LOW ATTENDANCE
+                                <span
+                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded border w-fit"
+                                  style={{
+                                    backgroundColor: 'rgba(255, 255, 0, 0.2)',
+                                    color: '#ffff00',
+                                    borderColor: 'rgba(255, 255, 0, 0.6)',
+                                  }}
+                                >
+                                  ⚠️ LOW ATTENDANCE
                                 </span>
                               )}
                             </div>
