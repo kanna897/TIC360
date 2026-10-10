@@ -21,6 +21,8 @@ import {
   MapPin,
   FileText,
   UserCheck,
+  UserX,
+  AlertTriangle,
   UploadCloud,
   Upload,
   FileSpreadsheet,
@@ -34,7 +36,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { formatCurrency, formatDate, exportToCSV, exportToExcel, formatMonthName } from '@/lib/utils';
+import { formatCurrency, formatDate, exportToCSV, exportToExcel, formatMonthName, getStudentDropoutStatusInMonth } from '@/lib/utils';
 import { SRI_LANKA_BANKS, getBankByName } from '@/lib/sriLankaBanks';
 
 export default function BlossomPaymentsPage() {
@@ -42,6 +44,7 @@ export default function BlossomPaymentsPage() {
     students,
     blossomPayments,
     monthlyAttendance,
+    dropouts,
     updatePaymentStatus,
     updateStudent,
     recalculateMonthlyPayments,
@@ -52,8 +55,11 @@ export default function BlossomPaymentsPage() {
     attendanceMarks,
   } = useStore();
 
-  // Active Tab: 'details' (Blossom Trust Student Details Table) | 'monthly' (Monthly Disbursement Ledger)
-  const [activeTab, setActiveTab] = useState<'details' | 'monthly'>('details');
+  // Active Tab: 'details' (Blossom Trust Student Details Table) | 'monthly' (Monthly Disbursement Ledger) | 'report' (Monthly Dropout & Low Attendance Report)
+  const [activeTab, setActiveTab] = useState<'details' | 'monthly' | 'report'>('details');
+
+  // Month state for Tab 3: Monthly Dropout & Low Attendance Report Generator
+  const [selectedReportMonth, setSelectedReportMonth] = useState<string>('2026-09');
 
   // Year & Month for Monthly Disbursement Ledger
   const [selectedYear, setSelectedYear] = useState<number>(2026);
@@ -190,6 +196,204 @@ export default function BlossomPaymentsPage() {
         updatePaymentStatus(p.id, 'Paid', ref, 'Bank transfer executed');
       }
     });
+  };
+
+  // Tab 3: Monthly Options for Dropout & Low Attendance Report Generator
+  const reportMonthOptions = useMemo(() => {
+    const monthsSet = new Set<string>([
+      '2026-10',
+      '2026-09',
+      '2026-08',
+      '2026-07',
+      '2026-06',
+      '2026-05',
+      '2026-04',
+    ]);
+    attendanceSessions.forEach((s) => {
+      if (s.month) monthsSet.add(s.month);
+      else if (s.date) monthsSet.add(s.date.substring(0, 7));
+    });
+    dropouts.forEach((d) => {
+      if (d.dropoutMonth) monthsSet.add(d.dropoutMonth.substring(0, 7));
+      if (d.recordedAt) monthsSet.add(d.recordedAt.substring(0, 7));
+    });
+    monthlyAttendance.forEach((m) => {
+      if (m.month) monthsSet.add(m.month);
+    });
+
+    return Array.from(monthsSet)
+      .sort((a, b) => b.localeCompare(a))
+      .map((m) => ({
+        value: m,
+        label: formatMonthName(m),
+      }));
+  }, [attendanceSessions, dropouts, monthlyAttendance]);
+
+  // Tab 3 Section 1: Dropouts for Selected Month
+  const monthDropoutStudents = useMemo(() => {
+    return students.filter((stu) => {
+      if (!stu.isBlossomTrust || stu.isDummy) return false;
+
+      const cleanUt = (stu.utNumber || '').trim().toUpperCase();
+      const dropoutRecord = dropouts.find(
+        (d) =>
+          (d.studentId && d.studentId === stu.id) ||
+          (d.utNumber && d.utNumber.trim().toUpperCase() === cleanUt)
+      );
+
+      if (dropoutRecord) {
+        const dMonth = (dropoutRecord.dropoutMonth || '').trim().substring(0, 7);
+        if (dMonth === selectedReportMonth) return true;
+        if (!dMonth && dropoutRecord.recordedAt && dropoutRecord.recordedAt.substring(0, 7) === selectedReportMonth) return true;
+      }
+
+      if (stu.currentStatus === 'Dropout') {
+        const statusCheck = getStudentDropoutStatusInMonth(stu, dropouts, selectedReportMonth);
+        if (statusCheck.isDroppedOutThisMonth) return true;
+      }
+
+      return false;
+    });
+  }, [students, dropouts, selectedReportMonth]);
+
+  // Tab 3 Section 2: Low Attendance Scholars for Selected Month
+  const monthLowAttendanceStudents = useMemo(() => {
+    const monthlyThreshold = settings.blossomMonthlyThresholds?.[selectedReportMonth] ?? settings.paymentEligibilityAttendanceThreshold;
+
+    const list: (Student & { calculatedAttendancePct: number; reason?: string })[] = [];
+
+    students.forEach((stu) => {
+      if (!stu.isBlossomTrust || stu.isDummy) return;
+
+      // Exclude if already dropped out before or in this month
+      const statusCheck = getStudentDropoutStatusInMonth(stu, dropouts, selectedReportMonth);
+      if (statusCheck.isDropoutInMonth || statusCheck.isAfterDropoutMonth) return;
+      if (stu.currentStatus === 'Dropout' && statusCheck.isDropoutInMonth) return;
+
+      // 1. Saved Monthly Attendance Record
+      const savedMonthlyRec = monthlyAttendance.find(
+        (m) =>
+          (m.studentId === stu.id || (m.utNumber && stu.utNumber && m.utNumber.trim().toUpperCase() === stu.utNumber.trim().toUpperCase())) &&
+          m.month === selectedReportMonth
+      );
+
+      // 2. Live attendance calculation for selectedReportMonth
+      const isFrontend = stu.courseName === 'Frontend Developer' || stu.courseId === 'Frontend Developer';
+      const monthSessions = attendanceSessions.filter((ses) => {
+        const isMatchMonth = ses.month === selectedReportMonth || ses.date?.startsWith(selectedReportMonth);
+        if (!isMatchMonth && attendanceMarks[ses.id]?.[stu.id] === undefined) return false;
+        if (attendanceMarks[ses.id]?.[stu.id] !== undefined) return true;
+        return (
+          ses.group === 'All' ||
+          (!isFrontend && (ses.group === 'Group A' || ses.group === 'Group B') && (ses.group === stu.group || (ses.group === 'Group A' && (!stu.group || stu.group === 'A')) || (ses.group === 'Group B' && stu.group === 'B'))) ||
+          (isFrontend && ses.group === 'Frontend Developer')
+        );
+      });
+
+      let livePct = 100;
+      if (monthSessions.length > 0) {
+        let presentCount = 0;
+        monthSessions.forEach((ses) => {
+          const mark = attendanceMarks[ses.id]?.[stu.id];
+          if (mark === 'P' || mark === 'L' || (!mark && stu.currentStatus !== 'Dropout')) presentCount++;
+        });
+        livePct = Math.round((presentCount / monthSessions.length) * 100);
+      }
+
+      const effectivePct = savedMonthlyRec ? savedMonthlyRec.attendancePercentage : livePct;
+
+      const isLow = effectivePct < monthlyThreshold || stu.currentStatus === 'Low Attendance';
+
+      if (isLow) {
+        list.push({
+          ...stu,
+          calculatedAttendancePct: effectivePct,
+          reason: `Attendance ${effectivePct}% < ${monthlyThreshold}% Threshold`,
+        });
+      }
+    });
+
+    return list;
+  }, [students, dropouts, monthlyAttendance, attendanceSessions, attendanceMarks, selectedReportMonth, settings]);
+
+  // Export Combined Monthly Dropout & Low Attendance Excel File (Exact format matching user reference file)
+  const handleExportDropoutLowAttReport = () => {
+    const aoa: any[][] = [];
+
+    // Title / Section 1: DROPED OUT LIST
+    aoa.push([]);
+    aoa.push(['', 'DROPED OUT LIST']);
+    aoa.push(['No', 'UT No', 'Name', 'Beneficiary Name', 'Amount', 'Account No.', 'Beneficiary Bank', 'Branch', 'Branch C. No']);
+
+    if (monthDropoutStudents.length === 0) {
+      aoa.push(['-', '-', 'No dropouts recorded for this month', '-', '-', '-', '-', '-', '-']);
+    } else {
+      monthDropoutStudents.forEach((stu, idx) => {
+        const amt = stu.blossomAmount !== undefined && stu.blossomAmount > 0 ? stu.blossomAmount : 15000;
+        aoa.push([
+          idx + 1,
+          stu.utNumber,
+          stu.fullName,
+          stu.bankDetails?.beneficiaryName || stu.fullName,
+          amt,
+          stu.bankDetails?.accountNumber || 'N/A',
+          stu.bankDetails?.bankName || 'Pan Asia Bank',
+          stu.bankDetails?.branchName || 'World Trade Center',
+          stu.bankDetails?.branchCode || '1',
+        ]);
+      });
+    }
+
+    // Blank separator rows matching reference file
+    aoa.push([]);
+    aoa.push([]);
+    aoa.push([]);
+    aoa.push([]);
+
+    // Section 2: LOW ATTENDENCE LIST
+    aoa.push(['LOW ATTENDENCE LIST']);
+    aoa.push(['No', 'UT No', 'Name', 'Beneficiary Name', 'Amount', 'Account No.', 'Beneficiary Bank', 'Branch', 'Branch C. No', 'Attendance %']);
+
+    if (monthLowAttendanceStudents.length === 0) {
+      aoa.push(['-', '-', 'All students met attendance threshold for this month', '-', '-', '-', '-', '-', '-', '-']);
+    } else {
+      monthLowAttendanceStudents.forEach((stu, idx) => {
+        const amt = stu.blossomAmount !== undefined && stu.blossomAmount > 0 ? stu.blossomAmount : 15000;
+        aoa.push([
+          idx + 1,
+          stu.utNumber,
+          stu.fullName,
+          stu.bankDetails?.beneficiaryName || stu.fullName,
+          amt,
+          stu.bankDetails?.accountNumber || 'N/A',
+          stu.bankDetails?.bankName || 'Pan Asia Bank',
+          stu.bankDetails?.branchName || 'World Trade Center',
+          stu.bankDetails?.branchCode || '1',
+          `${stu.calculatedAttendancePct}%`,
+        ]);
+      });
+    }
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Set readable column widths
+    ws['!cols'] = [
+      { wch: 6 },
+      { wch: 14 },
+      { wch: 30 },
+      { wch: 28 },
+      { wch: 12 },
+      { wch: 22 },
+      { wch: 20 },
+      { wch: 22 },
+      { wch: 14 },
+      { wch: 16 },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    const safeMonth = selectedReportMonth.replace('-', '_');
+    XLSX.writeFile(wb, `TIC360_Blossom_Trust_${safeMonth}_Dropouts_and_Low_Attendance.xlsx`);
   };
 
   // Export Blossom Trust Beneficiary Student Details (Exact 11 Columns)
@@ -556,12 +760,26 @@ export default function BlossomPaymentsPage() {
             <Calendar className="w-4 h-4" />
             <span>💳 Monthly Disbursement Ledger & Attendance (80% Rule)</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('report')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'report'
+                ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
+                : 'text-amber-400 hover:text-amber-300 hover:bg-amber-950/40'
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>📑 Monthly Dropout & Low Attendance Report</span>
+          </button>
         </div>
 
         <span className="text-[11px] text-slate-400 hidden sm:inline">
           {activeTab === 'details'
             ? 'Viewing exact Blossom Trust Beneficiary Bank Master Register'
-            : 'Monthly stipend eligibility calculation & bank transfer records'}
+            : activeTab === 'monthly'
+            ? 'Monthly stipend eligibility calculation & bank transfer records'
+            : 'Combined Monthly Dropouts & Low Attendance Register (.xlsx Generator)'}
         </span>
       </div>
 
@@ -1117,6 +1335,372 @@ export default function BlossomPaymentsPage() {
               </table>
             </div>
           </Card>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: MONTHLY DROPOUT & LOW ATTENDANCE REPORT GENERATOR                  */}
+      {/* ========================================================================= */}
+      {activeTab === 'report' && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Header & Month Selector Control Card */}
+          <Card className="border-amber-500/40 bg-slate-950/90 shadow-2xl">
+            <CardHeader className="pb-3 border-b border-slate-800/80">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      <FileSpreadsheet className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-black text-white">
+                        Monthly Dropout &amp; Low Attendance Report Generator
+                      </CardTitle>
+                      <CardDescription className="text-xs text-slate-400">
+                        Official Blossom Trust combined register matching office Excel format
+                      </CardDescription>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  <Button
+                    onClick={handleExportDropoutLowAttReport}
+                    className="w-full md:w-auto bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+                    leftIcon={<Download className="w-4 h-4 text-slate-950" />}
+                  >
+                    Download Excel Report (.xlsx)
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                {/* Month Dropdown Selector */}
+                <div className="flex-1 max-w-md">
+                  <label className="block text-xs font-bold text-amber-300 mb-1.5 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Select Report Month:</span>
+                  </label>
+                  <Select
+                    value={selectedReportMonth}
+                    onChange={(e) => setSelectedReportMonth(e.target.value)}
+                    options={reportMonthOptions}
+                  />
+                </div>
+
+                {/* Quick Month Select Chips */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-slate-400 mr-1">Quick Select:</span>
+                  {reportMonthOptions.slice(0, 4).map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSelectedReportMonth(opt.value)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                        selectedReportMonth === opt.value
+                          ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30'
+                          : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Statistics Strip */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-5 pt-4 border-t border-slate-800/80">
+                <div className="p-3.5 rounded-xl bg-red-950/25 border border-red-500/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-red-400">
+                      Dropouts in Month
+                    </span>
+                    <UserX className="w-4 h-4 text-red-400" />
+                  </div>
+                  <p className="text-2xl font-black text-red-300 mt-1 font-mono">
+                    {monthDropoutStudents.length}
+                  </p>
+                  <span className="text-[10px] text-slate-400">
+                    Scholars marked dropout in {formatMonthName(selectedReportMonth)}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-yellow-950/20 border border-yellow-500/40">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#ffff00]">
+                      Low Attendance Scholars
+                    </span>
+                    <AlertTriangle className="w-4 h-4 text-[#ffff00]" />
+                  </div>
+                  <p className="text-2xl font-black text-[#ffff00] mt-1 font-mono">
+                    {monthLowAttendanceStudents.length}
+                  </p>
+                  <span className="text-[10px] text-slate-400">
+                    Active scholars &lt; {(settings.blossomMonthlyThresholds?.[selectedReportMonth] ?? settings.paymentEligibilityAttendanceThreshold)}% in {formatMonthName(selectedReportMonth)}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300">
+                      Total Identified Cases
+                    </span>
+                    <Users className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <p className="text-2xl font-black text-white mt-1 font-mono">
+                    {monthDropoutStudents.length + monthLowAttendanceStudents.length}
+                  </p>
+                  <span className="text-[10px] text-slate-400">
+                    Combined for {formatMonthName(selectedReportMonth)} report
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* SECTION 1: DROPED OUT LIST (EXACT EXCEL SECTION 1) */}
+          <div className="rounded-2xl border-2 border-red-500/50 bg-slate-950/95 shadow-2xl overflow-hidden animate-fadeIn">
+            <div className="p-4 bg-red-950/40 border-b border-red-500/30 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400">
+                  <UserX className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-red-300 tracking-wide uppercase flex items-center gap-2">
+                    <span>🛑 DROPED OUT LIST</span>
+                    <span className="text-xs font-mono font-bold text-slate-400">
+                      ({formatMonthName(selectedReportMonth).toUpperCase()})
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Blossom Trust trainees who dropped out in {formatMonthName(selectedReportMonth)}
+                  </p>
+                </div>
+              </div>
+
+              <Badge variant="rose" className="text-xs px-2.5 py-0.5 font-mono">
+                {monthDropoutStudents.length} Students
+              </Badge>
+            </div>
+
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-900/90 text-[10px] uppercase tracking-wider font-extrabold text-slate-300 select-none">
+                    <th className="py-2.5 px-2 text-center w-8 text-slate-400">No</th>
+                    <th className="py-2.5 px-2 text-white whitespace-nowrap">UT No</th>
+                    <th className="py-2.5 px-2 text-slate-100 whitespace-nowrap">Name</th>
+                    <th className="py-2.5 px-2 text-slate-100 whitespace-nowrap">Beneficiary Name</th>
+                    <th className="py-2.5 px-2 text-red-400 font-black whitespace-nowrap text-center">Amount</th>
+                    <th className="py-2.5 px-2 text-slate-100 whitespace-nowrap">Account No.</th>
+                    <th className="py-2.5 px-2 text-slate-200 whitespace-nowrap">Beneficiary Bank</th>
+                    <th className="py-2.5 px-2 text-slate-200 whitespace-nowrap">Branch</th>
+                    <th className="py-2.5 px-2 text-center text-slate-200 whitespace-nowrap">Branch C. No</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80 text-xs">
+                  {monthDropoutStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-10 text-center text-xs text-slate-400">
+                        No Blossom Trust trainees recorded as dropped out in {formatMonthName(selectedReportMonth)}.
+                      </td>
+                    </tr>
+                  ) : (
+                    monthDropoutStudents.map((stu, index) => {
+                      const amt = stu.blossomAmount !== undefined && stu.blossomAmount > 0 ? stu.blossomAmount : 15000;
+                      return (
+                        <tr
+                          key={stu.id}
+                          className="bg-red-950/20 hover:bg-red-950/40 border-b border-red-900/40 transition-colors group"
+                        >
+                          <td className="py-2.5 px-2 text-center font-bold text-slate-400 font-mono">
+                            {index + 1}
+                          </td>
+                          <td className="py-2.5 px-2 font-mono font-extrabold text-red-400 whitespace-nowrap line-through opacity-80">
+                            {stu.utNumber}
+                          </td>
+                          <td className="py-2.5 px-2 font-bold text-slate-200 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <span className="line-through text-red-300 opacity-80">{stu.fullName}</span>
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-red-500/20 border border-red-500/40 text-red-400 tracking-wider">
+                                ✂ STOPPED
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-2 text-slate-300 font-medium whitespace-nowrap">
+                            {stu.bankDetails?.beneficiaryName || stu.fullName}
+                          </td>
+                          <td className="py-2.5 px-2 text-center font-mono font-extrabold text-red-400 whitespace-nowrap line-through opacity-80">
+                            LKR {amt.toLocaleString()}
+                          </td>
+                          <td className="py-2.5 px-2 font-mono text-slate-200 font-bold whitespace-nowrap">
+                            {stu.bankDetails?.accountNumber || 'N/A'}
+                          </td>
+                          <td className="py-2.5 px-2 text-slate-300 whitespace-nowrap">
+                            {stu.bankDetails?.bankName || 'Pan Asia Bank'}
+                          </td>
+                          <td className="py-2.5 px-2 text-slate-300 whitespace-nowrap">
+                            {stu.bankDetails?.branchName || 'World Trade Center'}
+                          </td>
+                          <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-300 whitespace-nowrap">
+                            {stu.bankDetails?.branchCode || '1'}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* SECTION 2: LOW ATTENDENCE LIST (EXACT EXCEL SECTION 2) */}
+          <div
+            className="rounded-2xl border-2 bg-slate-950/95 shadow-2xl overflow-hidden animate-fadeIn"
+            style={{ borderColor: 'rgba(255, 255, 0, 0.6)' }}
+          >
+            <div
+              className="p-4 border-b flex items-center justify-between"
+              style={{
+                backgroundColor: 'rgba(255, 255, 0, 0.1)',
+                borderColor: 'rgba(255, 255, 0, 0.3)',
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 0, 0.2)',
+                    color: '#ffff00',
+                    border: '1px solid rgba(255, 255, 0, 0.5)',
+                  }}
+                >
+                  <AlertTriangle className="w-4 h-4 text-[#ffff00]" />
+                </div>
+                <div>
+                  <h3
+                    className="text-sm font-black tracking-wide uppercase flex items-center gap-2"
+                    style={{ color: '#ffff00', textShadow: '0 0 8px rgba(255, 255, 0, 0.4)' }}
+                  >
+                    <span>⚠️ LOW ATTENDENCE LIST</span>
+                    <span className="text-xs font-mono font-bold text-slate-400">
+                      ({formatMonthName(selectedReportMonth).toUpperCase()})
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Scholars whose attendance is below the monthly threshold in {formatMonthName(selectedReportMonth)}
+                  </p>
+                </div>
+              </div>
+
+              <div
+                className="px-2.5 py-0.5 rounded font-mono font-bold text-xs"
+                style={{
+                  backgroundColor: 'rgba(255, 255, 0, 0.2)',
+                  color: '#ffff00',
+                  border: '1px solid rgba(255, 255, 0, 0.6)',
+                }}
+              >
+                {monthLowAttendanceStudents.length} Scholars
+              </div>
+            </div>
+
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-900/90 text-[10px] uppercase tracking-wider font-extrabold text-slate-300 select-none">
+                    <th className="py-2.5 px-2 text-center w-8 text-slate-400">No</th>
+                    <th className="py-2.5 px-2 text-white whitespace-nowrap">UT No</th>
+                    <th className="py-2.5 px-2 text-slate-100 whitespace-nowrap">Name</th>
+                    <th className="py-2.5 px-2 text-slate-100 whitespace-nowrap">Beneficiary Name</th>
+                    <th className="py-2.5 px-2 text-center text-slate-300 font-black whitespace-nowrap">Amount</th>
+                    <th className="py-2.5 px-2 text-slate-100 whitespace-nowrap">Account No.</th>
+                    <th className="py-2.5 px-2 text-slate-200 whitespace-nowrap">Beneficiary Bank</th>
+                    <th className="py-2.5 px-2 text-slate-200 whitespace-nowrap">Branch</th>
+                    <th className="py-2.5 px-2 text-center text-slate-200 whitespace-nowrap">Branch C. No</th>
+                    <th className="py-2.5 px-2 text-center whitespace-nowrap" style={{ color: '#ffff00' }}>Attendance %</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80 text-xs">
+                  {monthLowAttendanceStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-10 text-center text-xs text-slate-400">
+                        🎉 All active Blossom Trust scholars met the attendance threshold in {formatMonthName(selectedReportMonth)}.
+                      </td>
+                    </tr>
+                  ) : (
+                    monthLowAttendanceStudents.map((stu, index) => {
+                      const amt = stu.blossomAmount !== undefined && stu.blossomAmount > 0 ? stu.blossomAmount : 15000;
+                      return (
+                        <tr
+                          key={stu.id}
+                          className="hover:bg-[#ffff00]/20 border-b border-[#ffff00]/30 transition-colors group"
+                          style={{
+                            backgroundColor: 'rgba(255, 255, 0, 0.10)',
+                            boxShadow: 'inset 4px 0 0 0 #ffff00',
+                          }}
+                        >
+                          <td className="py-2.5 px-2 text-center font-bold text-slate-300 font-mono">
+                            {index + 1}
+                          </td>
+                          <td className="py-2.5 px-2 font-mono font-extrabold whitespace-nowrap" style={{ color: '#ffff00' }}>
+                            {stu.utNumber}
+                          </td>
+                          <td className="py-2.5 px-2 font-bold text-slate-100 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-yellow-200 font-extrabold">{stu.fullName}</span>
+                              <span
+                                className="px-1.5 py-0.2 rounded text-[9px] font-black border"
+                                style={{
+                                  backgroundColor: 'rgba(255, 255, 0, 0.25)',
+                                  color: '#ffff00',
+                                  borderColor: 'rgba(255, 255, 0, 0.6)',
+                                }}
+                              >
+                                LOW ATT
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-2 text-slate-200 font-medium whitespace-nowrap">
+                            {stu.bankDetails?.beneficiaryName || stu.fullName}
+                          </td>
+                          <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-200 whitespace-nowrap">
+                            LKR {amt.toLocaleString()}
+                          </td>
+                          <td className="py-2.5 px-2 font-mono text-slate-100 font-extrabold whitespace-nowrap">
+                            {stu.bankDetails?.accountNumber || 'N/A'}
+                          </td>
+                          <td className="py-2.5 px-2 text-slate-200 whitespace-nowrap">
+                            {stu.bankDetails?.bankName || 'Pan Asia Bank'}
+                          </td>
+                          <td className="py-2.5 px-2 text-slate-200 whitespace-nowrap">
+                            {stu.bankDetails?.branchName || 'World Trade Center'}
+                          </td>
+                          <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-200 whitespace-nowrap">
+                            {stu.bankDetails?.branchCode || '1'}
+                          </td>
+                          <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                            <span
+                              className="inline-block px-2 py-0.5 rounded font-mono font-extrabold text-[11px] shadow-sm"
+                              style={{
+                                backgroundColor: 'rgba(255, 255, 0, 0.2)',
+                                color: '#ffff00',
+                                border: '1px solid rgba(255, 255, 0, 0.6)',
+                                textShadow: '0 0 6px rgba(255, 255, 0, 0.4)',
+                              }}
+                            >
+                              {stu.calculatedAttendancePct}%
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
