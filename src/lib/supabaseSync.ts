@@ -69,6 +69,62 @@ const safeDelete = async (table: string, id: string) => {
   }
 };
 
+// ─── Sanitization Helpers for Foreign Keys ──────────────────────────────────
+
+const VALID_BATCH_IDS = new Set(['BATCH-2026-A', 'BATCH-2026-B', 'BATCH-2026-C']);
+
+const sanitizeBatchId = (batchId?: string | null): string => {
+  if (!batchId) return 'BATCH-2026-A';
+  const upper = batchId.trim().toUpperCase();
+  if (VALID_BATCH_IDS.has(upper)) return upper;
+  if (upper === 'B01' || upper === 'BAT-2026' || upper === 'GROUP A' || upper === 'BAT-01' || upper === 'BAT-02') return 'BATCH-2026-A';
+  if (upper === 'B02' || upper === 'GROUP B') return 'BATCH-2026-B';
+  if (upper === 'B03' || upper === 'GROUP C') return 'BATCH-2026-C';
+  return 'BATCH-2026-A';
+};
+
+const VALID_COURSE_IDS = new Set([
+  'CRS-TIC-01',
+  'CRS-TIC-02',
+  'CRS-TIC-03',
+  'CRS-TIC-04',
+  'CRS-TIC-05',
+  'Frontend Developer',
+]);
+
+const sanitizeCourseId = (courseId?: string | null): string => {
+  if (!courseId) return 'CRS-TIC-01';
+  const trimmed = courseId.trim();
+  if (VALID_COURSE_IDS.has(trimmed)) return trimmed;
+  const lower = trimmed.toLowerCase();
+  if (
+    trimmed === 'CRS-01' ||
+    trimmed === 'CRS-02' ||
+    lower.includes('software') ||
+    lower.includes('full-stack') ||
+    lower.includes('full stack') ||
+    lower.includes('web')
+  ) {
+    return 'CRS-TIC-01';
+  }
+  if (lower.includes('ui') || lower.includes('ux') || lower.includes('design')) {
+    return 'CRS-TIC-02';
+  }
+  if (lower.includes('data') || lower.includes('analytics')) {
+    return 'CRS-TIC-03';
+  }
+  if (lower.includes('cyber') || lower.includes('security')) {
+    return 'CRS-TIC-04';
+  }
+  if (lower.includes('digital') || lower.includes('marketing')) {
+    return 'CRS-TIC-05';
+  }
+  if (lower.includes('frontend')) {
+    return 'Frontend Developer';
+  }
+  return 'CRS-TIC-01';
+};
+
 // ─── DB-row mappers (camelCase → snake_case) ───────────────────────────────
 
 const toDbStudent = (s: Student) => ({
@@ -89,8 +145,8 @@ const toDbStudent = (s: Student) => ({
   photo_url: s.photoUrl || null,
   is_blossom_trust: s.isBlossomTrust ?? false,
   current_status: s.currentStatus || 'Active',
-  batch_id: s.batchId || null,
-  course_id: s.courseId || null,
+  batch_id: sanitizeBatchId(s.batchId),
+  course_id: sanitizeCourseId(s.courseId),
 });
 
 const toDbCourse = (c: Course) => ({
@@ -110,18 +166,6 @@ const toDbBatch = (b: Batch) => ({
   end_date: b.endDate || null,
   status: b.status || 'Active',
 });
-
-const VALID_BATCH_IDS = new Set(['BATCH-2026-A', 'BATCH-2026-B', 'BATCH-2026-C']);
-
-const sanitizeBatchId = (batchId?: string | null): string | null => {
-  if (!batchId) return null;
-  const upper = batchId.trim().toUpperCase();
-  if (VALID_BATCH_IDS.has(upper)) return upper;
-  if (upper === 'B01' || upper === 'BAT-2026' || upper === 'GROUP A') return 'BATCH-2026-A';
-  if (upper === 'B02' || upper === 'GROUP B') return 'BATCH-2026-B';
-  if (upper === 'B03' || upper === 'GROUP C') return 'BATCH-2026-C';
-  return null;
-};
 
 const toDbAttendanceSession = (s: AttendanceSession) => ({
   id: s.id,
@@ -775,7 +819,7 @@ export const syncStudent = async (student: Student) => {
       beneficiary_name: student.bankDetails.beneficiaryName || student.fullName,
       district: student.bankDetails.district || student.district,
       updated_at: new Date().toISOString(),
-    }]);
+    }], { onConflict: 'student_id' });
   }
 };
 
@@ -789,7 +833,7 @@ export const syncStudentBankDetails = (studentId: string, bankDetails: any, full
     beneficiary_name: bankDetails.beneficiaryName || fullName || 'Beneficiary',
     district: bankDetails.district || district || 'Jaffna',
     updated_at: new Date().toISOString(),
-  }]);
+  }], { onConflict: 'student_id' });
 
 export const syncProgrammeHistory = (studentId: string, programme: string, groupName: string | null, effectiveFrom: string) =>
   safeUpsert('programme_history', [{
