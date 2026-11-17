@@ -93,9 +93,11 @@ export const signInWithGoogle = async (): Promise<{ success: boolean; error?: st
     return { success: false, error: 'Authentication service is not configured.' };
   }
 
-  const redirectTo = typeof window !== 'undefined'
-    ? `${window.location.origin}/`
-    : 'https://tic-360.vercel.app/';
+  // Always return OAuth users to the public production domain. Using
+  // window.location.origin here sends preview deployments to Vercel's
+  // deployment-protection login instead of back to TIC360.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://tic-360.vercel.app';
+  const redirectTo = `${siteUrl.replace(/\/$/, '')}/`;
 
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
