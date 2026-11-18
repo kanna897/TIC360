@@ -1025,4 +1025,3 @@ export const resetSeedDataInSupabase = async (state: {
 
   console.log('[supabaseSync] Seed reset complete.');
 };
-
