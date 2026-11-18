@@ -47,7 +47,7 @@ export const GoogleSheetsUploadModal: React.FC<GoogleSheetsUploadModalProps> = (
         const newParsedData: Record<string, { sessions: AttendanceSession[], marks: Record<string, Record<string, AttendanceMark>> }> = {};
         
         let totalMatched = 0;
-        let totalMissing = 0;
+        const totalMissing = 0;
         let totalMarks = 0;
         let totalSessions = 0;
         
@@ -289,3 +289,4 @@ export const GoogleSheetsUploadModal: React.FC<GoogleSheetsUploadModalProps> = (
     </Modal>
   );
 };
+
