@@ -2177,4 +2177,3 @@ export default function BlossomPaymentsPage() {
     </div>
   );
 }
-
