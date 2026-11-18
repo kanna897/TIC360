@@ -239,4 +239,3 @@ export const ThreeDPieChart: React.FC<ThreeDPieChartProps> = ({
     </div>
   );
 };
-
