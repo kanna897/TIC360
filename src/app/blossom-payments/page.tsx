@@ -89,20 +89,26 @@ export default function BlossomPaymentsPage() {
 
   // Only Blossom Trust Students (or all students with search & district filtering)
   const blossomStudents = useMemo(() => {
-    return students.filter((s) => {
-      if (s.isDummy) return false;
-      const isBlossom = s.isBlossomTrust;
-      const matchesSearch =
-        s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.utNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.phone.includes(searchQuery) ||
-        (s.bankDetails?.bankName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (s.bankDetails?.accountNumber || '').includes(searchQuery);
+    return students
+      .filter((s) => {
+        if (s.isDummy) return false;
+        const isBlossom = s.isBlossomTrust;
+        const matchesSearch =
+          s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          s.utNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          s.phone.includes(searchQuery) ||
+          (s.bankDetails?.bankName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (s.bankDetails?.accountNumber || '').includes(searchQuery);
 
-      const matchesDistrict = districtFilter === 'all' || s.district === districtFilter;
+        const matchesDistrict = districtFilter === 'all' || s.district === districtFilter;
 
-      return isBlossom && matchesSearch && matchesDistrict;
-    });
+        return isBlossom && matchesSearch && matchesDistrict;
+      })
+      .sort((a, b) => {
+        const amountA = a.blossomAmount !== undefined && a.blossomAmount > 0 ? a.blossomAmount : 15000;
+        const amountB = b.blossomAmount !== undefined && b.blossomAmount > 0 ? b.blossomAmount : 15000;
+        return amountB - amountA;
+      });
   }, [students, searchQuery, districtFilter]);
 
   // Unique Districts for Filter
@@ -165,7 +171,15 @@ export default function BlossomPaymentsPage() {
             status: newStatus
          };
       });
-  }, [blossomPayments, selectedMonthString, monthlyAttendance, settings]);
+  }, [
+    blossomPayments,
+    selectedMonthString,
+    monthlyAttendance,
+    settings,
+    attendanceMarks,
+    attendanceSessions,
+    students,
+  ]);
 
   // Filtered monthly payments list
   const filteredPayments = useMemo(() => {
@@ -2163,3 +2177,4 @@ export default function BlossomPaymentsPage() {
     </div>
   );
 }
+
