@@ -12,4 +12,3 @@ create unique index if not exists unique_dropouts_student_id
 grant select, insert on public.audit_logs to authenticated;
 
 commit;
-
