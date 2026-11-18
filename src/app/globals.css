@@ -11,6 +11,8 @@
     --accent-cyan: #06b6d4;
     --accent-purple: #8b5cf6;
     --accent-amber: #f59e0b;
+    --font-geist-sans: "Segoe UI", Arial, sans-serif;
+    --font-geist-mono: "Cascadia Code", Consolas, monospace;
   }
 
   .light {
@@ -101,3 +103,4 @@ body {
     padding: 0 !important;
   }
 }
+
