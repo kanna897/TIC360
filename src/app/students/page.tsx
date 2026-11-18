@@ -684,7 +684,7 @@ export default function StudentsPage() {
                     });
                     
                     let presentCount = 0;
-                    let totalCount = mySessions.length;
+                    const totalCount = mySessions.length;
                     
                     mySessions.forEach(ses => {
                        const mark = attendanceMarks[ses.id]?.[stu.id];
