@@ -538,4 +538,3 @@ DROP POLICY IF EXISTS "Allow full access on career_survey_responses" ON career_s
 
 COMMIT;
 
-
