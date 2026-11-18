@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   GraduationCap,
   Briefcase,
@@ -28,6 +29,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 
 export default function GraduateSurveyPage() {
+  const router = useRouter();
   const { students, outcomes, saveStudentOutcome } = useStore();
 
   const [selectedUtNumber, setSelectedUtNumber] = useState('');
@@ -59,17 +61,6 @@ export default function GraduateSurveyPage() {
     linkedinUrl: '',
     remarks: '',
   });
-
-  // Auto-detect ?ut=UT-2026-001 from URL parameter if shared as a personalized link
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const utParam = params.get('ut');
-      if (utParam) {
-        handleUtSelect(utParam);
-      }
-    }
-  }, [students]);
 
   // When a UT number is selected from dropdown or typed, autofill student info
   const handleUtSelect = (ut: string) => {
@@ -110,6 +101,18 @@ export default function GraduateSurveyPage() {
       }));
     }
   };
+
+  // Auto-detect ?ut=UT-2026-001 from URL parameter if shared as a personalized link
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const utParam = params.get('ut');
+    if (utParam) {
+      handleUtSelect(utParam);
+    }
+    // This should run when the store finishes loading students. handleUtSelect is
+    // deliberately kept out of the dependency list because it is recreated per render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [students]);
 
   // Adjust default company / salary when currentStatus or employmentStatus changes
   const handleEmploymentStatusChange = (status: string) => {
@@ -299,7 +302,7 @@ export default function GraduateSurveyPage() {
             <Button
               variant="primary"
               onClick={() => {
-                window.location.href = '/students';
+                router.push('/students');
               }}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
@@ -627,3 +630,4 @@ export default function GraduateSurveyPage() {
     </div>
   );
 }
+
