@@ -14,20 +14,44 @@ const chunkArray = <T,>(arr: T[], size: number): T[][] => {
   return chunks;
 };
 
+// Serialize writes per table. The store performs both granular write-through and
+// a debounced full sync; without a queue those two paths can upsert the same
+// attendance rows concurrently and cause PostgreSQL deadlocks.
+const tableWriteQueues = new Map<string, Promise<void>>();
+
 /** Fire-and-forget: logs errors but never throws. */
-export const safeUpsert = async (table: string, rows: object[], options?: { onConflict?: string }) => {
-  if (!rows.length) return;
-  try {
-    const chunks = chunkArray(rows, 500);
-    for (const chunk of chunks) {
-      const { error } = options?.onConflict
-        ? await supabase.from(table).upsert(chunk as never, { onConflict: options.onConflict })
-        : await supabase.from(table).upsert(chunk as never);
-      if (error) console.warn(`[supabaseSync] upsert ${table}:`, error.message);
+export const safeUpsert = (table: string, rows: object[], options?: { onConflict?: string }): Promise<void> => {
+  if (!rows.length) return Promise.resolve();
+
+  const previous = tableWriteQueues.get(table) ?? Promise.resolve();
+  const operation = previous.catch(() => undefined).then(async () => {
+    try {
+      const chunks = chunkArray(rows, 250);
+      for (const chunk of chunks) {
+        const { error } = options?.onConflict
+          ? await supabase.from(table).upsert(chunk as never, { onConflict: options.onConflict })
+          : await supabase.from(table).upsert(chunk as never);
+        if (error) console.warn(`[supabaseSync] upsert ${table}:`, error.message);
+      }
+    } catch (e) {
+      console.warn(`[supabaseSync] safeUpsert ${table}:`, e);
     }
-  } catch (e) {
-    console.warn(`[supabaseSync] safeUpsert ${table}:`, e);
-  }
+  });
+
+  tableWriteQueues.set(table, operation);
+  return operation.finally(() => {
+    if (tableWriteQueues.get(table) === operation) tableWriteQueues.delete(table);
+  });
+};
+
+const safeAuthenticatedUpsert = async (
+  table: string,
+  rows: object[],
+  options?: { onConflict?: string }
+) => {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return;
+  await safeUpsert(table, rows, options);
 };
 
 /**
@@ -302,7 +326,6 @@ const toDbCareerSurvey = (s: CareerSurveyResponse) => ({
 
 // ─── App-row mappers (snake_case → camelCase) ──────────────────────────────
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 const fromDbStudent = (s: any): Student => ({
   id: s.id,
   utNumber: s.ut_number,
@@ -503,7 +526,6 @@ const fromDbCareerSurvey = (s: any): CareerSurveyResponse => ({
   remarks: s.remarks || undefined,
   createdAt: s.created_at,
 });
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 // ─── Fetch All ──────────────────────────────────────────────────────────────
 
@@ -796,7 +818,7 @@ export const syncAllToSupabase = async (state: {
     safeUpsert('assessment_marks', state.assessmentMarks.map(toDbAssessmentMark), { onConflict: 'assessment_id,student_id' }),
     safeUpsert('course_completions', state.completions.map(toDbCompletion), { onConflict: 'student_id' }),
     safeUpsert('student_outcomes', state.outcomes.map(toDbOutcome), { onConflict: 'student_id' }),
-    safeUpsert('audit_logs', state.auditLogs.slice(0, 100).map(toDbAuditLog)),
+    safeAuthenticatedUpsert('audit_logs', state.auditLogs.slice(0, 100).map(toDbAuditLog)),
     state.settings
       ? supabase.from('system_settings').upsert({ key: 'default', value: state.settings }).then(() => {})
       : Promise.resolve(),
@@ -911,7 +933,7 @@ export const syncCareerSurveyResponses = (responses: CareerSurveyResponse[]) =>
   safeUpsert('career_survey_responses', responses.map(toDbCareerSurvey));
 
 export const syncAuditLog = (log: AuditLog) =>
-  safeUpsert('audit_logs', [toDbAuditLog(log)]);
+  safeAuthenticatedUpsert('audit_logs', [toDbAuditLog(log)]);
 
 // ─── Seed Reset: wipe TIC360 tables then write seed data ─────────────────────
 
@@ -995,7 +1017,7 @@ export const resetSeedDataInSupabase = async (state: {
     safeUpsert('assessment_marks', state.assessmentMarks.map(toDbAssessmentMark)),
     safeUpsert('course_completions', state.completions.map(toDbCompletion)),
     safeUpsert('student_outcomes', state.outcomes.map(toDbOutcome)),
-    safeUpsert('audit_logs', state.auditLogs.slice(0, 100).map(toDbAuditLog)),
+    safeAuthenticatedUpsert('audit_logs', state.auditLogs.slice(0, 100).map(toDbAuditLog)),
     state.settings
       ? supabase.from('system_settings').upsert({ key: 'default', value: state.settings }).then(() => {})
       : Promise.resolve(),
@@ -1003,3 +1025,4 @@ export const resetSeedDataInSupabase = async (state: {
 
   console.log('[supabaseSync] Seed reset complete.');
 };
+
