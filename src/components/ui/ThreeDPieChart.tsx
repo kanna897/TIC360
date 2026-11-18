@@ -49,13 +49,15 @@ export const ThreeDPieChart: React.FC<ThreeDPieChartProps> = ({
   const total = realTotal || 1;
 
   // Build slice angles
-  let angle = -Math.PI / 2;
   const slices = data.map((d, index) => {
+    const precedingValue = data
+      .slice(0, index)
+      .reduce((sum, slice) => sum + slice.value, 0);
+    const angle = -Math.PI / 2 + (precedingValue / total) * 2 * Math.PI;
     const sweep = (d.value / total) * 2 * Math.PI;
     const start = angle;
     const end = angle + sweep;
     const mid = angle + sweep / 2;
-    angle += sweep;
     return { ...d, start, end, mid, originalIndex: index };
   });
 
@@ -108,7 +110,10 @@ export const ThreeDPieChart: React.FC<ThreeDPieChartProps> = ({
   );
 
   return (
-    <div className="flex flex-col items-center gap-3 relative">
+    <div
+      className="flex w-full flex-col items-center gap-3 relative"
+      style={{ maxWidth: width }}
+    >
       {/* Title */}
       {(title || subtitle) && (
         <div className="text-center">
@@ -119,10 +124,11 @@ export const ThreeDPieChart: React.FC<ThreeDPieChartProps> = ({
 
       {/* SVG 3D Chart */}
       <svg
-        width={width}
-        height={height}
-        style={{ overflow: 'visible' }}
+        className="block h-auto w-full"
+        style={{ overflow: 'visible', aspectRatio: `${width} / ${height}` }}
         viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={title ? `${title} chart` : 'Pie chart'}
       >
         {/* 1. Bottom faces */}
         {sorted.map((s, i) => (
@@ -233,3 +239,4 @@ export const ThreeDPieChart: React.FC<ThreeDPieChartProps> = ({
     </div>
   );
 };
+
