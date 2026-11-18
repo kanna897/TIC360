@@ -43,6 +43,8 @@ import { formatCurrency, calculateBlossomComparison } from '@/lib/utils';
 import { ROLE_PERMISSIONS } from '@/lib/permissions';
 import { ThreeDPieChart } from '@/components/ui/ThreeDPieChart';
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 export default function DashboardPage() {
   const {
     students,
@@ -152,14 +154,12 @@ export default function DashboardPage() {
     { name: 'Looking / Unemployed', value: unemployedCount || 0, color: '#f59e0b' },
   ];
   // Aggregate historical attendance data dynamically
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  
   const attendanceTrendData = useMemo(() => {
     const dataByMonth: Record<string, any> = {};
     monthlyAttendance.forEach(a => {
       const parts = a.month.split('-');
       if (parts.length < 2) return;
-      const mLabel = monthNames[parseInt(parts[1], 10) - 1]; // e.g., 'Apr'
+      const mLabel = MONTH_NAMES[parseInt(parts[1], 10) - 1]; // e.g., 'Apr'
       if (!dataByMonth[a.month]) {
         dataByMonth[a.month] = { sortKey: a.month, month: mLabel, excellent: 0, average: 0, critical: 0 };
       }
@@ -179,7 +179,7 @@ export default function DashboardPage() {
     blossomPayments.forEach(p => {
       const parts = p.month.split('-');
       if (parts.length < 2) return;
-      const mLabel = monthNames[parseInt(parts[1], 10) - 1];
+      const mLabel = MONTH_NAMES[parseInt(parts[1], 10) - 1];
       if (!dataByMonth[p.month]) {
         dataByMonth[p.month] = { sortKey: p.month, month: mLabel, eligible: 0, paid: 0, notEligible: 0 };
       }
@@ -409,10 +409,10 @@ export default function DashboardPage() {
           <span className="text-xs text-slate-400 ml-1">— Live overview · {totalStudents} students</span>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
 
           {/* 1. Dropout Status */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-emerald-500/40 transition-all flex justify-center">
+          <div className="min-w-0 overflow-hidden bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5 hover:border-emerald-500/40 transition-all flex justify-center">
             <ThreeDPieChart
               title="Dropout Status"
               subtitle="Active vs Dropped Out"
@@ -427,7 +427,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 2. Course Specialization */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-indigo-500/40 transition-all flex justify-center">
+          <div className="min-w-0 overflow-hidden bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5 hover:border-indigo-500/40 transition-all flex justify-center">
             <ThreeDPieChart
               title="Course Specialization"
               subtitle="Full Stack vs Front End"
@@ -442,7 +442,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 3. Course Completion */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-amber-500/40 transition-all flex justify-center">
+          <div className="min-w-0 overflow-hidden bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5 hover:border-amber-500/40 transition-all flex justify-center">
             <ThreeDPieChart
               title="Course Completion"
               subtitle="Completion status breakdown"
@@ -458,7 +458,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 4. Employment Status */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-blue-500/40 transition-all flex justify-center">
+          <div className="min-w-0 overflow-hidden bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5 hover:border-blue-500/40 transition-all flex justify-center">
             <ThreeDPieChart
               title="Employment Status"
               subtitle="Industry placement distribution"
@@ -474,7 +474,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 5. Other Status */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-purple-500/40 transition-all flex justify-center">
+          <div className="min-w-0 overflow-hidden bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5 hover:border-purple-500/40 transition-all flex justify-center">
             <ThreeDPieChart
               title="Other Status"
               subtitle="Further study & placement"
@@ -490,7 +490,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 6. Student Type Split */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-rose-500/40 transition-all flex justify-center">
+          <div className="min-w-0 overflow-hidden bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5 hover:border-rose-500/40 transition-all flex justify-center">
             <ThreeDPieChart
               title="Student Type Split"
               subtitle="Blossom vs Non-Blossom vs Dropout"
@@ -570,3 +570,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
